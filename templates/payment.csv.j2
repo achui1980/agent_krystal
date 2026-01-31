@@ -1,0 +1,3 @@
+order_id,amount,currency,customer_id,timestamp,payment_method
+{% for row in data %}{{ row.order_id }},{{ row.amount }},{{ row.currency }},{{ row.customer_id }},{{ row.timestamp }},{{ row.payment_method }}
+{% endfor %}

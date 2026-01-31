@@ -1,0 +1,147 @@
+# Krystal Test Services Configuration
+# Staging environment - mirrors production with reduced data volume
+
+services:
+  - name: "payment-service"
+    description: "支付处理服务端到端测试 - 测试环境"
+    enabled: true
+    retry_attempts: 3
+    
+    data_generation:
+      template: "templates/payment.csv.j2"
+      output_filename: "payment_staging_{timestamp}.csv"
+      row_count: 50
+      data_schema:
+        - name: "order_id"
+          type: "uuid"
+          required: true
+        - name: "amount"
+          type: "float"
+          min: 1.00
+          max: 10000.00
+          required: true
+        - name: "currency"
+          type: "enum"
+          values: ["USD", "EUR", "CNY", "JPY"]
+          required: true
+        - name: "customer_id"
+          type: "string"
+          pattern: "CUST[0-9]{6}"
+          required: true
+        - name: "timestamp"
+          type: "datetime"
+          format: "%Y-%m-%d %H:%M:%S"
+          required: true
+    
+    upload:
+      remote_path: "/staging/payment/incoming"
+    
+    trigger:
+      type: "api"
+      endpoint: "https://staging-api.example.com/v1/payment/process"
+      method: "POST"
+      headers:
+        Content-Type: "application/json"
+        Authorization: "Bearer {{API_TOKEN}}"
+      body_template: |
+        {
+          "file_path": "{{remote_file_path}}",
+          "batch_id": "{{batch_id}}",
+          "service": "payment",
+          "environment": "staging"
+        }
+      task_id_extractor: "$.data.task_id"
+    
+    polling:
+      enabled: true
+      max_attempts: 60
+      interval: 10
+      status_check:
+        endpoint: "https://staging-api.example.com/v1/payment/status/{{task_id}}"
+        success_statuses: ["completed", "success"]
+        failure_statuses: ["failed", "error", "cancelled"]
+    
+    validation:
+      download_from_sftp: true
+      remote_result_path: "/staging/payment/output/{{batch_id}}_result.csv"
+      local_temp_path: "/tmp/krystal/staging/downloads"
+      comparison_mode: "csv"
+      expected_schema:
+        - name: "order_id"
+          type: "string"
+          required: true
+        - name: "status"
+          type: "enum"
+          values: ["success", "failed", "pending"]
+          required: true
+        - name: "processed_amount"
+          type: "float"
+          required: true
+        - name: "transaction_id"
+          type: "string"
+          required: true
+      validation_rules:
+        - field: "processed_amount"
+          rule: "not_empty"
+        - field: "status"
+          rule: "not_empty"
+
+  - name: "invoice-service"
+    description: "发票生成服务测试 - 测试环境"
+    enabled: true
+    retry_attempts: 3
+    
+    data_generation:
+      template: "templates/invoice.csv.j2"
+      output_filename: "invoice_staging_{timestamp}.csv"
+      row_count: 20
+      data_schema:
+        - name: "invoice_id"
+          type: "uuid"
+          required: true
+        - name: "customer_id"
+          type: "string"
+          pattern: "CUST[0-9]{6}"
+          required: true
+        - name: "amount"
+          type: "float"
+          min: 10.00
+          max: 50000.00
+          required: true
+        - name: "description"
+          type: "string"
+          required: true
+    
+    upload:
+      remote_path: "/staging/invoice/incoming"
+    
+    trigger:
+      type: "api"
+      endpoint: "https://staging-api.example.com/v1/invoice/generate"
+      method: "POST"
+      headers:
+        Content-Type: "application/json"
+        Authorization: "Bearer {{API_TOKEN}}"
+      body_template: |
+        {
+          "input_file": "{{remote_file_path}}",
+          "job_id": "{{batch_id}}",
+          "environment": "staging"
+        }
+      task_id_extractor: "$.data.job_id"
+    
+    polling:
+      enabled: true
+      max_attempts: 60
+      interval: 10
+      status_check:
+        endpoint: "https://staging-api.example.com/v1/invoice/status/{{task_id}}"
+        success_statuses: ["completed"]
+        failure_statuses: ["failed", "error"]
+    
+    validation:
+      download_from_sftp: true
+      remote_result_path: "/staging/invoice/output/{{batch_id}}_invoice.pdf"
+      local_temp_path: "/tmp/krystal/staging/downloads"
+      comparison_mode: "file_exists"
+      expected_file_size_min: 1024

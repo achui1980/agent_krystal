@@ -1,0 +1,3 @@
+invoice_id,customer_id,amount,description
+{% for row in data %}{{ row.invoice_id }},{{ row.customer_id }},{{ row.amount }},{{ row.description }}
+{% endfor %}

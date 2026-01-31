@@ -1,0 +1,182 @@
+# Krystal Test Services Configuration
+# This file defines the services to be tested in the dev environment
+
+services:
+  - name: "payment-service"
+    description: "支付处理服务端到端测试"
+    enabled: true
+    retry_attempts: 3
+    
+    data_generation:
+      template: "templates/payment.csv.j2"
+      output_filename: "payment_test_{timestamp}.csv"
+      row_count: 10
+      data_schema:
+        - name: "order_id"
+          type: "uuid"
+          required: true
+        - name: "amount"
+          type: "float"
+          min: 1.00
+          max: 1000.00
+          required: true
+        - name: "currency"
+          type: "enum"
+          values: ["USD", "EUR", "CNY"]
+          required: true
+        - name: "customer_id"
+          type: "string"
+          pattern: "CUST[0-9]{6}"
+          required: true
+        - name: "timestamp"
+          type: "datetime"
+          format: "%Y-%m-%d %H:%M:%S"
+          required: true
+    
+    upload:
+      remote_path: "/uploads/payment/incoming"
+    
+    trigger:
+      type: "api"
+      endpoint: "https://httpbin.org/post"
+      method: "POST"
+      headers:
+        Content-Type: "application/json"
+        X-API-Key: "{{API_TOKEN}}"
+      body_template: |
+        {
+          "file_path": "{{remote_file_path}}",
+          "batch_id": "{{batch_id}}",
+          "service": "payment",
+          "row_count": {{row_count}}
+        }
+      task_id_extractor: "$.headers.X-Request-Id"
+    
+    polling:
+      enabled: true
+      max_attempts: 5
+      interval: 5
+      status_check:
+        endpoint: "https://httpbin.org/get?id={{task_id}}"
+        success_statuses: ["completed", "success"]
+        failure_statuses: ["failed", "error"]
+    
+    validation:
+      download_from_sftp: true
+      remote_result_path: "/uploads/payment/output/{{batch_id}}_result.csv"
+      local_temp_path: "/tmp/krystal/downloads"
+      comparison_mode: "csv"
+      expected_schema:
+        - name: "order_id"
+          type: "string"
+          required: true
+        - name: "status"
+          type: "enum"
+          values: ["success", "failed", "pending"]
+          required: true
+        - name: "processed_amount"
+          type: "float"
+          required: true
+        - name: "transaction_id"
+          type: "string"
+          required: true
+      validation_rules:
+        - field: "processed_amount"
+          rule: "not_empty"
+        - field: "status"
+          rule: "not_empty"
+
+  - name: "invoice-service"
+    description: "发票生成服务测试"
+    enabled: true
+    retry_attempts: 3
+    
+    data_generation:
+      template: "templates/invoice.csv.j2"
+      output_filename: "invoice_test_{timestamp}.csv"
+      row_count: 5
+      data_schema:
+        - name: "invoice_id"
+          type: "uuid"
+          required: true
+        - name: "customer_id"
+          type: "string"
+          pattern: "CUST[0-9]{6}"
+          required: true
+        - name: "amount"
+          type: "float"
+          min: 10.00
+          max: 50000.00
+          required: true
+        - name: "description"
+          type: "string"
+          required: true
+    
+    upload:
+      remote_path: "/uploads/invoice/incoming"
+    
+    trigger:
+      type: "api"
+      endpoint: "https://httpbin.org/post"
+      method: "POST"
+      headers:
+        Content-Type: "application/json"
+      body_template: |
+        {
+          "input_file": "{{remote_file_path}}",
+          "job_id": "{{batch_id}}"
+        }
+      task_id_extractor: "$.headers.X-Request-Id"
+    
+    polling:
+      enabled: true
+      max_attempts: 5
+      interval: 5
+      status_check:
+        endpoint: "https://httpbin.org/get?id={{task_id}}"
+        success_statuses: ["completed"]
+        failure_statuses: ["failed"]
+    
+    validation:
+      download_from_sftp: true
+      remote_result_path: "/uploads/invoice/output/{{batch_id}}_invoice.pdf"
+      local_temp_path: "/tmp/krystal/downloads"
+      comparison_mode: "file_exists"
+      expected_file_size_min: 1024
+
+  - name: "order-processing"
+    description: "订单处理服务测试（已禁用）"
+    enabled: false
+    retry_attempts: 3
+    
+    data_generation:
+      output_filename: "orders_test_{timestamp}.csv"
+      row_count: 20
+      data_schema:
+        - name: "order_id"
+          type: "uuid"
+        - name: "product_id"
+          type: "string"
+        - name: "quantity"
+          type: "int"
+          min: 1
+          max: 100
+    
+    upload:
+      remote_path: "/uploads/orders/incoming"
+    
+    trigger:
+      type: "api"
+      endpoint: "https://api.example.com/orders/process"
+      method: "POST"
+      task_id_extractor: "$.data.job_id"
+    
+    polling:
+      enabled: true
+      max_attempts: 20
+      interval: 15
+    
+    validation:
+      download_from_sftp: true
+      remote_result_path: "/uploads/orders/output/{{batch_id}}.csv"
+      comparison_mode: "csv"
