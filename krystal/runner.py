@@ -2,12 +2,15 @@
 Test Runner - Orchestrates testing across multiple services
 """
 
+import logging
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 from pathlib import Path
 
 from krystal.config import ConfigManager, ServiceConfig, KrystalConfig
 from krystal.crew.krystal_crew import KrystalCrew
+
+logger = logging.getLogger(__name__)
 
 
 class TestRunner:
@@ -49,25 +52,27 @@ class TestRunner:
                 if service:
                     services.append(service)
                 else:
-                    print(f"⚠️  Warning: Service '{name}' not found in configuration")
+                    logger.warning(
+                        f"⚠️  Warning: Service '{name}' not found in configuration"
+                    )
         else:
             services = self.config_manager.get_enabled_services()
 
         if not services:
-            print("⚠️  No services to test")
+            logger.warning("⚠️  No services to test")
             return []
 
-        print(f"\n{'#' * 70}")
-        print(f"# Krystal Test Execution")
-        print(f"# Environment: {self.environment}")
-        print(f"# Services: {len(services)}")
-        print(f"# Start Time: {self.start_time.strftime('%Y-%m-%d %H:%M:%S')}")
-        print(f"{'#' * 70}\n")
+        logger.info(f"\n{'#' * 70}")
+        logger.info(f"# Krystal Test Execution")
+        logger.info(f"# Environment: {self.environment}")
+        logger.info(f"# Services: {len(services)}")
+        logger.info(f"# Start Time: {self.start_time.strftime('%Y-%m-%d %H:%M:%S')}")
+        logger.info(f"{'#' * 70}\n")
 
         # Run tests sequentially for each service
         for i, service in enumerate(services, 1):
-            print(f"\n[{i}/{len(services)}] Testing service: {service.name}")
-            print("-" * 60)
+            logger.info(f"\n[{i}/{len(services)}] Testing service: {service.name}")
+            logger.info("-" * 60)
 
             try:
                 # Create crew for this service
@@ -82,7 +87,7 @@ class TestRunner:
                 self.results.append(result)
 
             except Exception as e:
-                print(f"❌ Error testing service {service.name}: {str(e)}")
+                logger.error(f"❌ Error testing service {service.name}: {str(e)}")
                 self.results.append(
                     {
                         "service": service.name,
@@ -105,15 +110,15 @@ class TestRunner:
         passed = sum(1 for r in self.results if r.get("success", False))
         failed = len(self.results) - passed
 
-        print(f"\n{'#' * 70}")
-        print(f"# Test Execution Summary")
-        print(f"{'#' * 70}")
-        print(f"# Total Services: {len(self.results)}")
-        print(f"# Passed: {passed} ✅")
-        print(f"# Failed: {failed} ❌")
-        print(f"# Duration: {duration:.2f} seconds")
-        print(f"# End Time: {self.end_time.strftime('%Y-%m-%d %H:%M:%S')}")
-        print(f"{'#' * 70}\n")
+        logger.info(f"\n{'#' * 70}")
+        logger.info(f"# Test Execution Summary")
+        logger.info(f"{'#' * 70}")
+        logger.info(f"# Total Services: {len(self.results)}")
+        logger.info(f"# Passed: {passed} ✅")
+        logger.info(f"# Failed: {failed} ❌")
+        logger.info(f"# Duration: {duration:.2f} seconds")
+        logger.info(f"# End Time: {self.end_time.strftime('%Y-%m-%d %H:%M:%S')}")
+        logger.info(f"{'#' * 70}\n")
 
         # Print details
         for result in self.results:
@@ -122,9 +127,9 @@ class TestRunner:
             status = "✅ PASSED" if success else "❌ FAILED"
 
             if "error" in result:
-                print(f"{service}: {status} - {result['error']}")
+                logger.error(f"{service}: {status} - {result['error']}")
             else:
-                print(f"{service}: {status}")
+                logger.info(f"{service}: {status}")
 
     def get_summary(self) -> Dict[str, Any]:
         """Get execution summary as dictionary"""

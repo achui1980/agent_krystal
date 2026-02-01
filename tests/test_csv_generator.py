@@ -59,7 +59,7 @@ class TestCSVGeneratorTool:
 
         # 执行测试
         result = tool._run(
-            schema=schema, row_count=5, output_path=output_path, template_path=None
+            data_schema=schema, row_count=5, output_path=output_path, template_path=None
         )
 
         # 验证结果
@@ -125,7 +125,7 @@ class TestCSVGeneratorTool:
         }
 
         # 执行
-        result = tool._run(schema=schema, row_count=3, output_path=output_path)
+        result = tool._run(data_schema=schema, row_count=3, output_path=output_path)
 
         # 验证
         with open(result, "r", newline="", encoding="utf-8") as f:
@@ -182,7 +182,7 @@ class TestCSVGeneratorTool:
 
         # 执行
         result = tool._run(
-            schema=schema,
+            data_schema=schema,
             row_count=5,
             output_path=output_path,
             template_path=template_path,
@@ -219,7 +219,7 @@ class TestCSVGeneratorTool:
         }
 
         # 执行
-        result = tool._run(schema=schema, row_count=1, output_path=output_path)
+        result = tool._run(data_schema=schema, row_count=1, output_path=output_path)
 
         # 验证目录和文件都创建成功
         assert os.path.exists(nested_dir)
@@ -241,7 +241,7 @@ class TestCSVGeneratorTool:
         }
 
         # 执行
-        result = tool._run(schema=schema, row_count=0, output_path=output_path)
+        result = tool._run(data_schema=schema, row_count=0, output_path=output_path)
 
         # 验证
         with open(result, "r", newline="", encoding="utf-8") as f:
@@ -272,7 +272,7 @@ class TestCSVGeneratorTool:
         start_time = time.time()
 
         # 生成 1000 行
-        result = tool._run(schema=schema, row_count=1000, output_path=output_path)
+        result = tool._run(data_schema=schema, row_count=1000, output_path=output_path)
 
         elapsed = time.time() - start_time
 

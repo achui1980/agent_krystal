@@ -1,0 +1,47 @@
+version: "3.8"
+
+services:
+  sftp:
+    image: docker.io/atmoz/sftp:latest
+    container_name: krystal-sftp
+    ports:
+      - "2223:22"
+    volumes:
+      - sftp-data:/home/testuser
+    environment:
+      SFTP_USERS: "testuser:testpass:1000:1000:upload"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "sh", "-c", "nc -z localhost 22 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api-stub:
+    build:
+      context: ./stub
+      dockerfile: Dockerfile
+    container_name: krystal-api-stub
+    ports:
+      - "8000:8000"
+    volumes:
+      - sftp-data:/sftp-data:ro
+    environment:
+      - SFTP_HOST=sftp
+      - SFTP_PORT=22
+      - SFTP_USERNAME=testuser
+      - SFTP_PASSWORD=testpass
+      - SFTP_BASE_PATH=/home/testuser
+    depends_on:
+      sftp:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  sftp-data:
+    driver: local

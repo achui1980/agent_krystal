@@ -159,3 +159,152 @@ krystal/
 - `OPENAI_API_KEY` - Required for CrewAI
 - `SFTP_HOST`, `SFTP_USERNAME`, `SFTP_PASSWORD` - For file operations
 - `API_TOKEN` - For API authentication
+
+## Local E2E Integration Tests
+
+Krystal supports running real end-to-end tests against local Docker/Podman services (no mocks). This allows you to see CrewAI agents working with real SFTP and API services.
+
+### Integration Test Status ✅
+
+**Completed Features:**
+- ✅ Full CrewAI workflow with 5 agents (Data Generator → SFTP → API → Polling → Validation)
+- ✅ Proxy support for OpenAI API (HTTPS_PROXY)
+- ✅ Local API calls bypass proxy automatically
+- ✅ Detailed execution logging for all tools
+- ✅ Proper JSON output format from all tools
+- ✅ Environment variable loading from both `.env` and `secrets.env`
+
+**Test Results:**
+- ✅ SFTP upload/download with local SFTP server (port 2223)
+- ✅ API trigger and polling with local API Stub (port 8000)
+- ✅ CSV generation with schema/template support
+- ✅ Full CrewAI workflow execution (requires valid OpenAI API key)
+
+### Prerequisites
+
+1. **Install Podman** (or Docker)
+2. **Prepare secrets.env:**
+   ```bash
+   cp config/local/secrets.env.example config/local/secrets.env
+   # Edit and add your OPENAI_API_KEY
+   ```
+
+### Starting Local Services
+
+**Using Podman:**
+```bash
+cd integration_tests
+podman compose up -d
+```
+
+**Using Docker:**
+```bash
+cd integration_tests
+docker-compose up -d
+```
+
+**Verify services are running:**
+```bash
+# Check SFTP (port 2223)
+telnet localhost 2223
+
+# Check API Stub (port 8000)
+curl http://localhost:8000/health
+```
+
+### Running Integration Tests
+
+**Run all integration tests:**
+```bash
+python -m pytest integration_tests/ -v -s --timeout=300
+```
+
+**Run specific test:**
+```bash
+python -m pytest integration_tests/test_real_e2e.py::TestRealEndToEnd::test_crewai_agents_workflow_with_local_services -v -s
+```
+
+**Using TestRunner with local environment:**
+```bash
+python run_tests.py --env local --services local-payment-service --verbose
+```
+
+### Stopping Local Services
+
+**Podman:**
+```bash
+cd integration_tests
+podman compose down
+```
+
+**Docker:**
+```bash
+cd integration_tests
+docker-compose down
+```
+
+### Integration Test Structure
+
+```
+integration_tests/
+├── docker-compose.yml       # SFTP + API Stub services
+├── conftest.py             # pytest fixtures and setup
+├── test_real_e2e.py        # Real E2E tests (no mocks)
+└── stub/
+    ├── api_stub.py         # FastAPI mock service
+    ├── Dockerfile          # Container definition
+    └── requirements.txt    # Python dependencies
+```
+
+### Viewing Agent Logs
+
+Integration tests capture verbose output to log files:
+- Log files are saved to the pytest temporary directory
+- Each test creates a unique log file: `krystal_e2e_YYYYMMDD_HHMMSS.log`
+- Use `-s` flag when running pytest to see real-time output
+
+**Example:**
+```bash
+python -m pytest integration_tests/ -v -s 2>&1 | tee integration_test.log
+```
+
+### Troubleshooting
+
+**SFTP connection refused:**
+- Ensure container is running: `podman ps`
+- Check logs: `podman logs krystal-sftp`
+- Verify port: `netstat -an | grep 2222`
+
+**API Stub not responding:**
+- Check health endpoint: `curl http://localhost:8000/health`
+- View logs: `podman logs krystal-api-stub`
+
+**CrewAI/OpenAI errors:**
+- Verify OPENAI_API_KEY is set in `config/local/secrets.env`
+- Check key is valid: `echo $OPENAI_API_KEY`
+
+### Proxy Configuration
+
+If you need to use a proxy to access OpenAI API, configure it in `.env`:
+
+```bash
+# .env
+HTTPS_PROXY=http://127.0.0.1:2222
+```
+
+**Note:** Local API calls (localhost/127.0.0.1) automatically bypass the proxy to avoid interference with local services.
+
+### Environment Variable Loading
+
+Integration tests load environment variables in this order:
+1. `.env` file (root directory) - Contains OpenAI API key and proxy settings
+2. `config/local/secrets.env` - Contains local SFTP/API configuration
+
+The configuration ensures:
+- `.env` takes priority for `OPENAI_API_KEY` and proxy settings
+- `secrets.env` provides local service configuration (SFTP_HOST, SFTP_PORT, etc.)
+- Placeholder API keys in `secrets.env` are ignored
+
+### Viewing Tool Execution Logs
+
+All tools now print detailed execution information

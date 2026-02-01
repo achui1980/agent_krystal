@@ -3,6 +3,7 @@ SFTP Client Tools with retry support
 """
 
 import os
+import logging
 import paramiko
 from pathlib import Path
 from typing import Dict, Optional
@@ -14,6 +15,9 @@ from tenacity import (
     wait_exponential,
     retry_if_exception_type,
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 class SFTPUploadInput(BaseModel):
@@ -65,11 +69,33 @@ class SFTPClientTool(BaseTool):
             Dictionary with operation result
         """
         action = kwargs.get("action", "upload")
+        host = kwargs.get("host", "")
+        remote_path = kwargs.get("remote_path", "")
+        local_path = kwargs.get("local_path", "")
+
+        logger.info(f"📤 SFTP Client Tool 执行:")
+        logger.info(f"   操作: {action}")
+        logger.info(f"   服务器: {host}:{kwargs.get('port', 22)}")
+        logger.info(f"   用户名: {kwargs.get('username', '')}")
+        if action == "upload":
+            logger.info(f"   本地文件: {local_path}")
+            logger.info(f"   远程路径: {remote_path}")
+        elif action == "download":
+            logger.info(f"   远程路径: {remote_path}")
+            logger.info(f"   本地文件: {local_path}")
 
         if action == "upload":
-            return self._upload_file(**kwargs)
+            result = self._upload_file(**kwargs)
+            logger.info(
+                f"   {'✅ 上传成功' if result.get('success') else '❌ 上传失败'}"
+            )
+            return result
         elif action == "download":
-            return self._download_file(**kwargs)
+            result = self._download_file(**kwargs)
+            logger.info(
+                f"   {'✅ 下载成功' if result.get('success') else '❌ 下载失败'}"
+            )
+            return result
         else:
             raise ValueError(f"Unknown action: {action}")
 

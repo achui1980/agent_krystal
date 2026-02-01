@@ -158,6 +158,9 @@ class ReportGenerator:
         with open(output_path, "w", encoding="utf-8") as f:
             f.write(content)
 
-        print(f"📄 Report generated: {output_path}")
+        import logging
+
+        logger = logging.getLogger(__name__)
+        logger.info(f"📄 Report generated: {output_path}")
 
         return str(output_path)

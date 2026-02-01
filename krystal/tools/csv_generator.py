@@ -5,6 +5,7 @@ CSV Data Generation Tools
 import uuid
 import random
 import string
+import logging
 from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional
 from pathlib import Path
@@ -15,10 +16,13 @@ from crewai.tools import BaseTool
 from pydantic import BaseModel, Field
 
 
+logger = logging.getLogger(__name__)
+
+
 class GenerateCSVInput(BaseModel):
     """Input for CSV generation"""
 
-    schema: Dict[str, Any] = Field(description="Data schema definition")
+    data_schema: Dict[str, Any] = Field(description="Data schema definition")
     row_count: int = Field(default=100, description="Number of rows to generate")
     output_path: str = Field(description="Output file path")
     template_path: Optional[str] = Field(
@@ -39,16 +43,16 @@ class CSVGeneratorTool(BaseTool):
 
     def _run(
         self,
-        schema: Dict[str, Any],
+        data_schema: Dict[str, Any],
         row_count: int,
         output_path: str,
         template_path: Optional[str] = None,
-    ) -> str:
+    ) -> Dict[str, Any]:
         """
         Generate CSV file based on schema or template
 
         Args:
-            schema: Data schema with field definitions
+            data_schema: Data schema with field definitions
             row_count: Number of rows to generate
             output_path: Where to save the CSV file
             template_path: Optional template file for custom generation
@@ -56,18 +60,45 @@ class CSVGeneratorTool(BaseTool):
         Returns:
             Path to the generated CSV file
         """
+        logger.info(f"📊 CSV Generator Tool 执行:")
+        logger.info(f"   输出路径: {output_path}")
+        logger.info(f"   数据行数: {row_count}")
+        logger.info(f"   数据字段数: {len(data_schema.get('fields', []))}")
+
         # Ensure output directory exists
         output_file = Path(output_path)
         output_file.parent.mkdir(parents=True, exist_ok=True)
 
-        if template_path and Path(template_path).exists():
-            # Use template-based generation
-            return self._generate_from_template(
-                template_path, schema, row_count, output_file
-            )
-        else:
-            # Use schema-based generation
-            return self._generate_from_schema(schema, row_count, output_file)
+        try:
+            if template_path and Path(template_path).exists():
+                # Use template-based generation
+                logger.info(f"   使用模板: {template_path}")
+                file_path = self._generate_from_template(
+                    template_path, data_schema, row_count, output_file
+                )
+            else:
+                # Use schema-based generation
+                logger.info(f"   使用 schema 生成数据")
+                file_path = self._generate_from_schema(
+                    data_schema, row_count, output_file
+                )
+
+            logger.info(f"   ✅ 生成成功: {file_path}")
+
+            return {
+                "success": True,
+                "file_path": file_path,
+                "row_count": row_count,
+                "message": f"CSV file generated successfully: {file_path}",
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "file_path": str(output_file),
+                "row_count": row_count,
+                "error": str(e),
+                "message": f"Failed to generate CSV file: {str(e)}",
+            }
 
     def _generate_from_schema(
         self, schema: Dict[str, Any], row_count: int, output_file: Path
@@ -233,13 +264,34 @@ class TemplateLoaderTool(BaseTool):
     description: str = "Load and render Jinja2 templates with variables"
     args_schema: type[BaseModel] = LoadTemplateInput
 
-    def _run(self, template_path: str, variables: Dict[str, Any] = None) -> str:
+    def _run(
+        self, template_path: str, variables: Dict[str, Any] = None
+    ) -> Dict[str, Any]:
         """Load and render template"""
-        if not Path(template_path).exists():
-            raise FileNotFoundError(f"Template not found: {template_path}")
+        try:
+            if not Path(template_path).exists():
+                return {
+                    "success": False,
+                    "error": f"Template not found: {template_path}",
+                    "message": f"Template file does not exist: {template_path}",
+                }
 
-        with open(template_path, "r", encoding="utf-8") as f:
-            template_content = f.read()
+            with open(template_path, "r", encoding="utf-8") as f:
+                template_content = f.read()
 
-        template = Template(template_content)
-        return template.render(**(variables or {}))
+            template = Template(template_content)
+            rendered = template.render(**(variables or {}))
+
+            return {
+                "success": True,
+                "rendered": rendered,
+                "template_path": template_path,
+                "message": "Template rendered successfully",
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "error": str(e),
+                "template_path": template_path,
+                "message": f"Failed to render template: {str(e)}",
+            }

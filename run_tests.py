@@ -44,7 +44,7 @@ Examples:
         "--env",
         "-e",
         default="dev",
-        choices=["dev", "staging", "prod"],
+        choices=["local", "dev", "staging", "prod"],
         help="Environment to run tests in (default: dev)",
     )
 

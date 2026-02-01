@@ -2,11 +2,14 @@
 Polling Service Tools for monitoring task completion
 """
 
+import logging
 import time
 from typing import Dict, Any, List, Optional
 from crewai.tools import BaseTool
 from pydantic import BaseModel, Field
 from krystal.tools.api_client import APIClientTool, JSONExtractorTool
+
+logger = logging.getLogger(__name__)
 
 
 class PollStatusInput(BaseModel):
@@ -84,6 +87,13 @@ class PollingServiceTool(BaseTool):
         attempt = 0
         last_status = None
 
+        logger.info(f"\n⏳ Polling Service Tool 执行:")
+        logger.info(f"   Task ID: {task_id}")
+        logger.info(f"   端点: {endpoint}")
+        logger.info(f"   最大尝试次数: {max_attempts}")
+        logger.info(f"   轮询间隔: {interval}秒")
+        logger.info(f"   开始轮询...")
+
         while attempt < max_attempts:
             attempt += 1
 
@@ -94,6 +104,9 @@ class PollingServiceTool(BaseTool):
 
             if not response.get("success"):
                 # API call failed, retry
+                logger.info(
+                    f"   尝试 {attempt}/{max_attempts}: API 调用失败，等待重试..."
+                )
                 time.sleep(interval)
                 continue
 
@@ -105,11 +118,16 @@ class PollingServiceTool(BaseTool):
 
             if not status_result.get("success"):
                 # Failed to extract status, retry
+                logger.info(
+                    f"   尝试 {attempt}/{max_attempts}: 无法提取状态，等待重试..."
+                )
                 time.sleep(interval)
                 continue
 
             status = str(status_result.get("value", "")).lower()
             last_status = status
+
+            logger.info(f"   尝试 {attempt}/{max_attempts}: 当前状态 = {status}")
 
             # Check if completed
             if status in [s.lower() for s in success_statuses]:

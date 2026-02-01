@@ -51,14 +51,24 @@ pip install -r requirements.txt
 Create your environment configuration files:
 
 ```bash
-# Development environment
-cp config/dev/secrets.env.example config/dev/secrets.env
-# Edit config/dev/secrets.env with your API keys and credentials
-
-# Copy root .env
+# Copy root .env (contains OpenAI API key and proxy settings)
 cp .env.example .env
 # Edit .env with your OpenAI API key
+
+# Development environment
+cp config/dev/secrets.env.example config/dev/secrets.env
+# Edit config/dev/secrets.env with your SFTP/API credentials
+
+# Local integration test environment (optional)
+cp config/local/secrets.env.example config/local/secrets.env
+# Edit config/local/secrets.env for local Docker/Podman testing
 ```
+
+**Environment Variable Priority:**
+1. `.env` file (root directory) - OpenAI API key and proxy settings
+2. `config/{env}/secrets.env` - SFTP/API configuration and environment-specific settings
+
+**Note:** If you need to use a proxy to access OpenAI API, set `HTTPS_PROXY` in `.env`. Local API calls (localhost/127.0.0.1) automatically bypass the proxy.
 
 ### 3. Validate Configuration
 
@@ -275,6 +285,42 @@ Krystal generates Markdown reports with:
 
 Example report location: `reports/krystal_report_20260131_143000.md`
 
+## Recent Improvements
+
+### 🎯 Integration Testing Complete (2026-02)
+
+**Major Updates:**
+
+1. **Real E2E Testing with Local Services**
+   - Full CrewAI workflow testing against local SFTP (port 2223) and API Stub (port 8000)
+   - No mocks - real service interactions
+   - 3 core tests passing: SFTP, API, CSV Generation
+
+2. **Proxy Support**
+   - Added HTTPS_PROXY support for OpenAI API access
+   - Local API calls (localhost/127.0.0.1) automatically bypass proxy
+   - Configurable via `.env` file
+
+3. **Enhanced Logging**
+   - Detailed tool execution output with emojis and progress indicators
+   - Real-time visibility into CrewAI agent activities
+   - Example output:
+   ```
+   📊 CSV Generator Tool 执行:
+      输出路径: /tmp/krystal/...
+      数据行数: 5
+      ✅ 生成成功
+   ```
+
+4. **Environment Variable Management**
+   - Smart loading: `.env` (OpenAI key + proxy) → `secrets.env` (SFTP/API config)
+   - Prevents placeholder API keys from overriding real credentials
+
+5. **Bug Fixes**
+   - Fixed `'str' object has no attribute 'get'` error in CrewAI Task context
+   - Fixed tool return values to always return dictionaries (not strings)
+   - Fixed API client to bypass proxy for localhost calls
+
 ## Advanced Usage
 
 ### Custom Validation Rules
@@ -299,22 +345,66 @@ validation:
 retry_attempts: 5  # Per step, default is 3
 ```
 
-## Troubleshooting
+## Local Integration Testing
+
+Krystal supports real end-to-end testing against local Docker/Podman services with 5 CrewAI agents working together.
+
+### Setup Local Services
+
+```bash
+cd integration_tests
+
+# Using Podman
+podman compose up -d
+
+# Or using Docker
+docker-compose up -d
+```
+
+### Run Integration Tests
+
+```bash
+# Run all integration tests
+python -m pytest integration_tests/ -v -s --timeout=300
+
+# Run specific test
+python -m pytest integration_tests/test_real_e2e.py::TestRealEndToEnd::test_crewai_agents_workflow_with_local_services -v -s
+
+# Using TestRunner
+python run_tests.py --env local --services local-payment-service --verbose
+```
+
+### Integration Test Features
+
+✅ **Completed:**
+- Full CrewAI workflow (5 agents: Data Generator → SFTP → API → Polling → Validation)
+- Proxy support for OpenAI API (HTTPS_PROXY)
+- Local API calls bypass proxy automatically
+- Detailed tool execution logging
+- Proper JSON output format from all tools
+
+### Troubleshooting
 
 ### Common Issues
 
 1. **OpenAI API Key Missing**
    - Set `OPENAI_API_KEY` in `.env` or environment
+   - For proxy users: Set `HTTPS_PROXY` in `.env`
 
 2. **SFTP Connection Failed**
    - Check SFTP credentials in `secrets.env`
-   - Verify SFTP server is accessible
+   - Verify SFTP server is accessible: `telnet localhost 2223`
+   - Check container logs: `podman logs krystal-sftp`
 
-3. **Template Not Found**
+3. **API Stub 503 Error**
+   - Local API calls should bypass proxy automatically
+   - Verify API Stub is running: `curl http://localhost:8000/health`
+
+4. **Template Not Found**
    - Ensure template file exists in `templates/` directory
    - Check path in service configuration
 
-4. **API Trigger Failed**
+5. **API Trigger Failed**
    - Verify API endpoint is correct
    - Check authentication tokens
    - Review API response format

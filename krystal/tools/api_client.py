@@ -2,12 +2,17 @@
 API Client Tools
 """
 
+import os
 import json
+import logging
 import requests
 from typing import Dict, Any, Optional
 from crewai.tools import BaseTool
 from pydantic import BaseModel, Field
 from jsonpath_ng import parse as jsonpath_parse
+
+
+logger = logging.getLogger(__name__)
 
 
 class APIRequestInput(BaseModel):
@@ -61,6 +66,12 @@ class APIClientTool(BaseTool):
         Returns:
             Dictionary with response details
         """
+        logger.info(f"🌐 API Client Tool 执行:")
+        logger.info(f"   端点: {endpoint}")
+        logger.info(f"   方法: {method.upper()}")
+        if body:
+            logger.info(f"   请求体: {body}")
+
         try:
             headers = headers or {}
 
@@ -68,6 +79,30 @@ class APIClientTool(BaseTool):
             if body and method.upper() in ["POST", "PUT", "PATCH"]:
                 if "Content-Type" not in headers:
                     headers["Content-Type"] = "application/json"
+
+            # Check if this is a localhost/127.0.0.1 request
+            # If so, disable proxy to avoid interference
+            is_local = any(
+                [
+                    "localhost" in endpoint.lower(),
+                    "127.0.0.1" in endpoint,
+                    "::1" in endpoint,
+                ]
+            )
+
+            proxies = (
+                None
+                if is_local
+                else {
+                    "http": os.getenv("HTTP_PROXY"),
+                    "https": os.getenv("HTTPS_PROXY"),
+                }
+            )
+            # Remove None values
+            if proxies:
+                proxies = {k: v for k, v in proxies.items() if v}
+                if not proxies:
+                    proxies = None
 
             # Make request
             response = requests.request(
@@ -77,7 +112,10 @@ class APIClientTool(BaseTool):
                 json=body if body else None,
                 params=params,
                 timeout=timeout,
+                proxies=proxies,
             )
+
+            logger.info(f"   响应状态: HTTP {response.status_code}")
 
             # Parse response
             try:
@@ -193,7 +231,7 @@ class TemplateRenderTool(BaseTool):
     """
     args_schema: type[BaseModel] = RenderTemplateInput
 
-    def _run(self, template: str, variables: Dict[str, Any]) -> str:
+    def _run(self, template: str, variables: Dict[str, Any]) -> Dict[str, Any]:
         """
         Render template with variables
 
@@ -202,10 +240,15 @@ class TemplateRenderTool(BaseTool):
             variables: Dictionary of variables to substitute
 
         Returns:
-            Rendered string
+            Dictionary with rendered result
         """
         result = template
         for key, value in variables.items():
             placeholder = f"{{{{{key}}}}}"
             result = result.replace(placeholder, str(value))
-        return result
+        return {
+            "success": True,
+            "rendered": result,
+            "template": template,
+            "message": "Template rendered successfully",
+        }

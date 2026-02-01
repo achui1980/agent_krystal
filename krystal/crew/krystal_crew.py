@@ -5,6 +5,7 @@ Orchestrates 5 agents to execute complete testing workflow:
 1. Generate test data → 2. Upload to SFTP → 3. Trigger process → 4. Poll for completion → 5. Validate results
 """
 
+import logging
 from datetime import datetime
 from typing import Dict, Any, List
 import uuid
@@ -20,6 +21,9 @@ from krystal.agents import (
     ResultValidatorAgent,
 )
 from krystal.config import ServiceConfig, SFTPConfig, KrystalConfig
+
+
+logger = logging.getLogger(__name__)
 
 
 class KrystalCrew:
@@ -53,6 +57,18 @@ class KrystalCrew:
             import os
             from crewai.llm import LLM
 
+            # Set up proxy if configured (before creating LLM)
+            https_proxy = os.getenv("HTTPS_PROXY") or os.getenv("https_proxy")
+            http_proxy = os.getenv("HTTP_PROXY") or os.getenv("http_proxy")
+            proxy_url = https_proxy or http_proxy
+
+            if proxy_url:
+                # Set proxy environment variables for OpenAI client
+                os.environ["HTTP_PROXY"] = proxy_url
+                os.environ["HTTPS_PROXY"] = proxy_url
+                # For OpenAI Python client v1.x
+                os.environ["OPENAI_PROXY"] = proxy_url
+
             llm = LLM(
                 model=os.getenv("OPENAI_MODEL", "gpt-4o"),
                 api_key=os.getenv("OPENAI_API_KEY"),
@@ -81,12 +97,12 @@ SFTP服务器: {sftp_config.host}:{sftp_config.port}
             self.llm, self.environment_context
         )
 
-        # Create tasks
+        # Create tasks sequentially with proper context
         generate_task = self._create_generate_task(data_generator)
-        upload_task = self._create_upload_task(sftp_operator)
-        trigger_task = self._create_trigger_task(api_trigger)
-        poll_task = self._create_poll_task(polling_monitor)
-        validate_task = self._create_validate_task(result_validator)
+        upload_task = self._create_upload_task(sftp_operator, generate_task)
+        trigger_task = self._create_trigger_task(api_trigger, upload_task)
+        poll_task = self._create_poll_task(polling_monitor, trigger_task)
+        validate_task = self._create_validate_task(result_validator, poll_task)
 
         # Create crew with sequential process
         crew = Crew(
@@ -153,7 +169,7 @@ SFTP服务器: {sftp_config.host}:{sftp_config.port}
             agent=agent,
         )
 
-    def _create_upload_task(self, agent) -> Task:
+    def _create_upload_task(self, agent, generate_task: Task) -> Task:
         """Create SFTP upload task"""
         upload = self.service_config.upload
 
@@ -163,6 +179,7 @@ SFTP服务器: {sftp_config.host}:{sftp_config.port}
 SFTP配置:
 - 服务器: {self.sftp_config.host}:{self.sftp_config.port}
 - 用户名: {self.sftp_config.username}
+- 密码: 从环境变量 SFTP_PASSWORD 获取
 - 远程基础路径: {self.sftp_config.remote_base_path}
 
 上传配置:
@@ -172,7 +189,7 @@ SFTP配置:
 批次ID: {self.batch_id}
 
 请使用sftp_client工具上传文件:
-1. 连接SFTP服务器（使用配置中的凭证）
+1. 连接SFTP服务器（使用上述配置和SFTP_PASSWORD环境变量中的密码）
 2. 确保远程目录存在
 3. 上传文件到远程路径
 4. 验证文件大小
@@ -185,10 +202,10 @@ SFTP配置:
             description=description,
             expected_output="远程文件的完整路径和上传确认信息",
             agent=agent,
-            context=[self._create_generate_task.__name__],
+            context=[generate_task],
         )
 
-    def _create_trigger_task(self, agent) -> Task:
+    def _create_trigger_task(self, agent, upload_task: Task) -> Task:
         """Create API trigger task"""
         trigger = self.service_config.trigger
 
@@ -229,10 +246,10 @@ API触发配置:
             description=description,
             expected_output="任务ID（用于后续轮询）和API响应详情",
             agent=agent,
-            context=[self._create_upload_task.__name__],
+            context=[upload_task],
         )
 
-    def _create_poll_task(self, agent) -> Task:
+    def _create_poll_task(self, agent, trigger_task: Task) -> Task:
         """Create polling task"""
         polling = self.service_config.polling
 
@@ -241,7 +258,7 @@ API触发配置:
                 description="轮询已禁用，跳过此步骤。",
                 expected_output="轮询跳过确认",
                 agent=agent,
-                context=[self._create_trigger_task.__name__],
+                context=[trigger_task],
             )
 
         description = f"""
@@ -273,15 +290,20 @@ API触发配置:
             description=description,
             expected_output="最终任务状态、尝试次数、完成时间",
             agent=agent,
-            context=[self._create_trigger_task.__name__],
+            context=[trigger_task],
         )
 
-    def _create_validate_task(self, agent) -> Task:
+    def _create_validate_task(self, agent, poll_task: Task) -> Task:
         """Create result validation task"""
         validation = self.service_config.validation
 
         description = f"""
 下载结果文件并验证数据正确性。
+
+SFTP配置:
+- 服务器: {self.sftp_config.host}:{self.sftp_config.port}
+- 用户名: {self.sftp_config.username}
+- 远程基础路径: {self.sftp_config.remote_base_path}
 
 验证配置:
 - 下载结果文件: {"是" if validation.download_from_sftp else "否"}
@@ -292,12 +314,15 @@ API触发配置:
 批次ID: {self.batch_id}
 
 远程路径变量:
-- {{batch_id}} - 替换为当前批次ID
+- {{batch_id}} - 替换为当前批次ID: {self.batch_id}
 
 请使用以下工具执行验证:
 1. sftp_client (如果需要下载)
-   - 从远程路径下载文件
-   - 保存到本地临时路径
+   - 操作类型: download
+   - 服务器: {self.sftp_config.host}:{self.sftp_config.port}
+   - 用户名: {self.sftp_config.username}
+   - 密码: 从环境变量 SFTP_PASSWORD 获取
+   - 从远程路径下载文件到本地临时路径
 
 2. file_validator
    - 验证文件存在
@@ -320,7 +345,7 @@ API触发配置:
             description=description,
             expected_output="详细的测试验证报告（JSON格式）",
             agent=agent,
-            context=[self._create_poll_task.__name__],
+            context=[poll_task],
         )
 
     def run(self) -> Dict[str, Any]:
@@ -332,19 +357,49 @@ API触发配置:
         """
         import os
         from dotenv import load_dotenv
+        import sys
+        from io import StringIO
 
         load_dotenv()
 
-        print(f"\n{'=' * 60}")
-        print(f"开始测试服务: {self.service_config.name}")
-        print(f"环境: {self.environment}")
-        print(f"批次ID: {self.batch_id}")
-        print(f"{'=' * 60}\n")
+        logger.info(f"{'=' * 70}")
+        logger.info(f"🚀 开始测试服务: {self.service_config.name}")
+        logger.info(f"🌍 环境: {self.environment}")
+        logger.info(f"📦 批次ID: {self.batch_id}")
+        logger.info(f"{'=' * 70}")
+
+        # 捕获 CrewAI 的详细输出
+        crew_output = StringIO()
+        original_stdout = sys.stdout
 
         try:
             # Create and run crew
+            logger.info("🔧 正在创建 CrewAI Agents...")
             crew = self.create_crew()
+            logger.info(f"   ✓ 创建了 {len(crew.agents)} 个 Agents")
+            logger.info(f"   ✓ 配置了 {len(crew.tasks)} 个 Tasks")
+            logger.info(
+                f"   ✓ 使用模型: {self.llm.model if hasattr(self.llm, 'model') else 'default'}"
+            )
+
+            logger.info("🎬 启动 CrewAI Workflow 执行...")
+            logger.info(f"   流程: 数据生成 → SFTP上传 → API触发 → 轮询 → 验证")
+
+            # 重定向 stdout 来捕获输出
+            sys.stdout = crew_output
             result = crew.kickoff()
+            sys.stdout = original_stdout
+
+            # 打印捕获的输出
+            output_content = crew_output.getvalue()
+            if output_content:
+                logger.info("=" * 70)
+                logger.info("📋 CrewAI 执行详细日志:")
+                logger.info("=" * 70)
+                for line in output_content.split("\n"):
+                    if line.strip():
+                        logger.info(line)
+                logger.info("=" * 70)
 
             # Parse result
             self.results = {
@@ -354,15 +409,32 @@ API触发配置:
                 "success": True,
                 "result": result,
                 "timestamp": datetime.now().isoformat(),
+                "crew_output": output_content,
             }
 
-            print(f"\n{'=' * 60}")
-            print(f"服务 {self.service_config.name} 测试完成")
-            print(f"{'=' * 60}\n")
+            logger.info(f"✅ 服务 {self.service_config.name} 测试完成")
+            logger.info(f"   批次ID: {self.batch_id}")
+            logger.info(f"   结果类型: {type(result).__name__}")
+            logger.info(f"{'=' * 70}")
 
             return self.results
 
         except Exception as e:
+            sys.stdout = original_stdout
+            crew_output_str = crew_output.getvalue()
+
+            logger.error(f"❌ 服务 {self.service_config.name} 测试失败")
+            logger.error(f"   错误: {str(e)}")
+            if crew_output_str:
+                logger.error(f"📋 执行日志（到出错点）:")
+                for line in (
+                    crew_output_str[-1000:]
+                    if len(crew_output_str) > 1000
+                    else crew_output_str
+                ).split("\n"):
+                    if line.strip():
+                        logger.error(line)
+
             self.results = {
                 "service": self.service_config.name,
                 "batch_id": self.batch_id,
@@ -370,11 +442,12 @@ API触发配置:
                 "success": False,
                 "error": str(e),
                 "timestamp": datetime.now().isoformat(),
+                "crew_output": crew_output_str,
             }
 
-            print(f"\n{'=' * 60}")
-            print(f"服务 {self.service_config.name} 测试失败")
-            print(f"错误: {str(e)}")
-            print(f"{'=' * 60}\n")
+            logger.error(f"{'=' * 60}")
+            logger.error(f"服务 {self.service_config.name} 测试失败")
+            logger.error(f"错误: {str(e)}")
+            logger.error(f"{'=' * 60}")
 
             return self.results

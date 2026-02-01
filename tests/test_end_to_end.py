@@ -59,7 +59,7 @@ class TestEndToEndWorkflow:
             ]
         }
 
-        result1 = csv_tool._run(schema=schema, row_count=5, output_path=csv_path)
+        result1 = csv_tool._run(data_schema=schema, row_count=5, output_path=csv_path)
 
         assert os.path.exists(result1)
 
@@ -194,7 +194,7 @@ class TestEndToEndWorkflow:
 
         schema = {"fields": [{"name": "id", "type": "uuid"}]}
 
-        result1 = csv_tool._run(schema=schema, row_count=3, output_path=csv_path)
+        result1 = csv_tool._run(data_schema=schema, row_count=3, output_path=csv_path)
 
         assert os.path.exists(result1)
 
@@ -245,7 +245,7 @@ class TestEndToEndWorkflow:
             }
 
             result = csv_tool._run(
-                schema=schema, row_count=service["row_count"], output_path=csv_path
+                data_schema=schema, row_count=service["row_count"], output_path=csv_path
             )
 
             results.append(

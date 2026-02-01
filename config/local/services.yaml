@@ -1,0 +1,143 @@
+# Krystal Local E2E Test Configuration
+# 用于本地端到端测试，指向 Docker/Podman 启动的本地服务
+
+services:
+  - name: "local-payment-service"
+    description: "本地支付服务端到端测试"
+    enabled: true
+    retry_attempts: 3
+    
+    data_generation:
+      template: null  # 不使用模板，使用schema生成
+      output_filename: "payment_test_{timestamp}.csv"
+      row_count: 5
+      data_schema:
+        - name: "order_id"
+          type: "uuid"
+          required: true
+        - name: "amount"
+          type: "float"
+          min: 10.00
+          max: 500.00
+          required: true
+        - name: "currency"
+          type: "enum"
+          values: ["USD", "EUR"]
+          required: true
+        - name: "customer_id"
+          type: "string"
+          pattern: "CUST[0-9]{6}"
+          required: true
+    
+    upload:
+      remote_path: "upload/payment/incoming"
+    
+    trigger:
+      type: "api"
+      endpoint: "http://localhost:8000/api/v1/trigger"
+      method: "POST"
+      headers:
+        Content-Type: "application/json"
+      body_template: |
+        {
+          "file_path": "{{remote_file_path}}",
+          "batch_id": "{{batch_id}}",
+          "service": "payment-service",
+          "row_count": {{row_count}}
+        }
+      task_id_extractor: "$.task_id"
+    
+    polling:
+      enabled: true
+      max_attempts: 5
+      interval: 2
+      status_check:
+        endpoint: "http://localhost:8000/api/v1/status/{{task_id}}"
+        success_statuses: ["completed", "success"]
+        failure_statuses: ["failed", "error"]
+    
+    validation:
+      download_from_sftp: true
+      remote_result_path: "upload/payment/output/{{batch_id}}_result.csv"
+      local_temp_path: "/tmp/krystal/downloads"
+      comparison_mode: "csv"
+      expected_schema:
+        - name: "order_id"
+          type: "string"
+          required: true
+        - name: "status"
+          type: "enum"
+          values: ["success", "failed", "pending"]
+          required: true
+        - name: "processed_amount"
+          type: "float"
+          required: true
+        - name: "transaction_id"
+          type: "string"
+          required: true
+      validation_rules:
+        - field: "status"
+          rule: "not_empty"
+        - field: "transaction_id"
+          rule: "not_empty"
+
+  - name: "local-invoice-service"
+    description: "本地发票服务端到端测试"
+    enabled: true
+    retry_attempts: 3
+    
+    data_generation:
+      output_filename: "invoice_test_{timestamp}.csv"
+      row_count: 3
+      data_schema:
+        - name: "invoice_id"
+          type: "uuid"
+          required: true
+        - name: "customer_id"
+          type: "string"
+          pattern: "CUST[0-9]{6}"
+          required: true
+        - name: "amount"
+          type: "float"
+          min: 50.00
+          max: 1000.00
+          required: true
+        - name: "description"
+          type: "string"
+          min_length: 5
+          max_length: 50
+          required: true
+    
+    upload:
+      remote_path: "upload/invoice/incoming"
+    
+    trigger:
+      type: "api"
+      endpoint: "http://localhost:8000/api/v1/trigger"
+      method: "POST"
+      headers:
+        Content-Type: "application/json"
+      body_template: |
+        {
+          "file_path": "{{remote_file_path}}",
+          "batch_id": "{{batch_id}}",
+          "service": "invoice-service",
+          "row_count": {{row_count}}
+        }
+      task_id_extractor: "$.task_id"
+    
+    polling:
+      enabled: true
+      max_attempts: 5
+      interval: 2
+      status_check:
+        endpoint: "http://localhost:8000/api/v1/status/{{task_id}}"
+        success_statuses: ["completed"]
+        failure_statuses: ["failed"]
+    
+    validation:
+      download_from_sftp: true
+      remote_result_path: "upload/invoice/output/{{batch_id}}_result.csv"
+      local_temp_path: "/tmp/krystal/downloads"
+      comparison_mode: "file_exists"
+      expected_file_size_min: 10
