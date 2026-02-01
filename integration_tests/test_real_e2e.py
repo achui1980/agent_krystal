@@ -37,6 +37,7 @@ from krystal.tools.sftp_client import SFTPClientTool
 from krystal.tools.api_client import APIClientTool
 from krystal.tools.polling_service import PollingServiceTool
 from krystal.tools.validator import FileValidatorTool, DataValidatorTool
+from krystal.report import ReportGenerator
 
 
 # 配置测试日志
@@ -172,7 +173,26 @@ class TestRealEndToEnd:
             print(f"\n✅ 真实端到端测试通过！")
             print(f"   日志文件位置: {log_file}")
             print(f"   批次ID: {batch_id}")
-            print(f"   结果文件: {remote_result_path}\n")
+            print(f"   结果文件: {remote_result_path}")
+
+            # 生成测试报告
+            print(f"\n📄 正在生成测试报告...")
+            try:
+                report_generator = ReportGenerator()
+                report_results = [
+                    {
+                        "service": service.name,
+                        "success": result.get("success", False),
+                        "environment": self.env,
+                        "batch_id": batch_id,
+                        "timestamp": datetime.now().isoformat(),
+                        "result_file": remote_result_path,
+                    }
+                ]
+                report_path = report_generator.generate(report_results)
+                print(f"   ✅ 报告已生成: {report_path}\n")
+            except Exception as e:
+                print(f"   ⚠️ 报告生成失败: {e}\n")
 
         finally:
             # 清理日志 handler
