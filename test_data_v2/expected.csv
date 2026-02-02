@@ -1,0 +1,4 @@
+order_id,processed_amount,final_status,fee
+ORD001,100.00,completed,0.50
+ORD002,50.00,completed,0.25
+ORD003,200.00,completed,1.00

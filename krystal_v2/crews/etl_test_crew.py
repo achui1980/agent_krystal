@@ -1,6 +1,6 @@
 """
 ETL Test Crew - CrewAI编排
-3-Agent顺序执行：ETLOperator → ResultValidator → ReportWriter
+执行流程：实际ETL执行 → 结果验证 → 报告生成
 """
 
 import os
@@ -13,6 +13,7 @@ from crewai import Crew, Task, Process
 from crewai.llm import LLM
 
 from ..agents import ETLOperatorAgent, ResultValidatorAgent, ReportWriterAgent
+from ..execution.etl_executor import ETLExecutor
 
 
 logger = logging.getLogger(__name__)
@@ -22,15 +23,10 @@ class ETLTestCrew:
     """
     ETL测试Crew
 
-    编排3个Agent顺序执行：
-    1. ETLOperator: 执行ETL流程（上传→触发→等待→下载）
-    2. ResultValidator: 对比实际结果和预期结果
-    3. ReportWriter: 生成Markdown和HTML报告
-
-    配置：
-    - process: sequential（顺序执行）
-    - planning: True（启用智能规划）
-    - memory: True（启用上下文记忆）
+    执行流程：
+    1. 实际执行ETL流程（使用ETLExecutor）
+    2. 结果验证（代码对比）
+    3. CrewAI生成报告（验证器+报告撰写Agent）
     """
 
     def __init__(
@@ -43,18 +39,6 @@ class ETLTestCrew:
         output_dir: str = "./reports",
         llm=None,
     ):
-        """
-        初始化ETL测试Crew
-
-        Args:
-            input_file: 输入测试文件路径
-            expected_file: 预期结果文件路径
-            service_config: 服务配置（包含upload、trigger、polling等）
-            global_config: 全局配置（包含SFTP、API等）
-            environment: 环境名称
-            output_dir: 报告输出目录
-            llm: LLM模型（可选，默认使用环境变量配置的模型）
-        """
         self.input_file = input_file
         self.expected_file = expected_file
         self.service_config = service_config
@@ -74,55 +58,44 @@ class ETLTestCrew:
             )
         self.llm = llm
 
-        # 创建环境上下文
-        # 将配置转换为字典以便使用
-        if hasattr(service_config, "name"):
-            service_name = service_config.name
-            self.service_config_dict = {
-                "name": service_config.name,
-                "upload": {},
-                "trigger": {},
-                "polling": {},
-            }
+        # 提取配置
+        self._extract_configs()
 
-            # 尝试提取服务配置
-            if hasattr(service_config, "upload") and service_config.upload:
-                upload = service_config.upload
-                self.service_config_dict["upload"] = {
-                    "remote_path": getattr(upload, "remote_path", "/uploads"),
-                }
-            if hasattr(service_config, "trigger") and service_config.trigger:
-                trigger = service_config.trigger
-                self.service_config_dict["trigger"] = {
-                    "endpoint": getattr(trigger, "endpoint", ""),
-                    "method": getattr(trigger, "method", "POST"),
-                    "headers": getattr(trigger, "headers", {}),
-                    "body_template": getattr(trigger, "body_template", ""),
-                    "task_id_extractor": getattr(trigger, "task_id_extractor", ""),
-                }
-            if hasattr(service_config, "polling") and service_config.polling:
-                polling = service_config.polling
-                self.service_config_dict["polling"] = {
-                    "max_attempts": getattr(polling, "max_attempts", 30),
-                    "interval": getattr(polling, "interval", 10),
-                    "status_check_endpoint": getattr(
-                        polling, "status_check_endpoint", ""
-                    ),
-                }
+    def _extract_configs(self):
+        """从配置对象提取必要信息"""
+        # 服务配置
+        if hasattr(self.service_config, "name"):
+            self.service_name = self.service_config.name
+            self.trigger_config = (
+                self.service_config.trigger
+                if hasattr(self.service_config, "trigger")
+                else {}
+            )
+            self.polling_config = (
+                self.service_config.polling
+                if hasattr(self.service_config, "polling")
+                else {}
+            )
+            upload = (
+                self.service_config.upload
+                if hasattr(self.service_config, "upload")
+                else {}
+            )
+            self.remote_upload_path = (
+                upload.get("remote_path", "/uploads")
+                if isinstance(upload, dict)
+                else "/uploads"
+            )
         else:
-            service_name = (
-                service_config.get("name", "unknown")
-                if isinstance(service_config, dict)
-                else "unknown"
-            )
-            self.service_config_dict = (
-                service_config if isinstance(service_config, dict) else {}
-            )
+            self.service_name = "unknown"
+            self.trigger_config = {}
+            self.polling_config = {}
+            self.remote_upload_path = "/uploads"
 
-        # 从全局配置提取 SFTP 配置
+        # SFTP配置（从全局配置）
         self.sftp_config = {}
-        if global_config and hasattr(global_config, "sftp") and global_config.sftp:
-            sftp = global_config.sftp
+        if self.global_config and hasattr(self.global_config, "sftp"):
+            sftp = self.global_config.sftp
             self.sftp_config = {
                 "host": getattr(sftp, "host", "localhost"),
                 "port": getattr(sftp, "port", 2223),
@@ -130,279 +103,18 @@ class ETLTestCrew:
                 "password": getattr(sftp, "password", ""),
                 "remote_base_path": getattr(sftp, "remote_base_path", "/uploads"),
             }
-        elif isinstance(global_config, dict) and "sftp" in global_config:
-            self.sftp_config = global_config["sftp"]
-        self.llm = llm
+        elif isinstance(self.global_config, dict) and "sftp" in self.global_config:
+            self.sftp_config = self.global_config["sftp"]
 
-        # 创建环境上下文
-        # 将 ServiceConfig 对象转换为字典以便使用
-        if hasattr(service_config, "name"):
-            service_name = service_config.name
-            self.service_config_dict = {
-                "name": service_config.name,
-                "sftp": {},
-                "api": {},
-                "upload": {},
-                "trigger": {},
-                "polling": {},
+        # 默认SFTP配置
+        if not self.sftp_config:
+            self.sftp_config = {
+                "host": "localhost",
+                "port": 2223,
+                "username": "testuser",
+                "password": os.getenv("SFTP_PASSWORD", ""),
+                "remote_base_path": "/uploads",
             }
-            # 尝试提取 SFTP 配置
-            if hasattr(service_config, "sftp") and service_config.sftp:
-                sftp = service_config.sftp
-                self.service_config_dict["sftp"] = {
-                    "host": getattr(sftp, "host", "localhost"),
-                    "port": getattr(sftp, "port", 2223),
-                    "username": getattr(sftp, "username", "testuser"),
-                    "password": getattr(sftp, "password", ""),
-                    "remote_base_path": getattr(sftp, "remote_base_path", "/uploads"),
-                }
-
-            # 尝试提取其他配置
-            if hasattr(service_config, "upload") and service_config.upload:
-                upload = service_config.upload
-                self.service_config_dict["upload"] = {
-                    "remote_path": getattr(upload, "remote_path", "/uploads"),
-                }
-            if hasattr(service_config, "trigger") and service_config.trigger:
-                trigger = service_config.trigger
-                self.service_config_dict["trigger"] = {
-                    "endpoint": getattr(trigger, "endpoint", ""),
-                    "method": getattr(trigger, "method", "POST"),
-                    "headers": getattr(trigger, "headers", {}),
-                    "body_template": getattr(trigger, "body_template", ""),
-                    "task_id_extractor": getattr(trigger, "task_id_extractor", ""),
-                }
-            if hasattr(service_config, "polling") and service_config.polling:
-                polling = service_config.polling
-                self.service_config_dict["polling"] = {
-                    "max_attempts": getattr(polling, "max_attempts", 30),
-                    "interval": getattr(polling, "interval", 10),
-                    "status_check_endpoint": getattr(
-                        polling, "status_check_endpoint", ""
-                    ),
-                }
-        else:
-            service_name = (
-                service_config.get("name", "unknown")
-                if isinstance(service_config, dict)
-                else "unknown"
-            )
-            self.service_config_dict = (
-                service_config if isinstance(service_config, dict) else {}
-            )
-
-        self.environment_context = f"""
-        当前环境: {environment}
-        测试ID: {self.test_id}
-        输入文件: {input_file}
-        预期文件: {expected_file}
-        服务: {service_name}
-        """
-
-    def create_crew(self) -> Crew:
-        """
-        创建并配置Crew
-
-        Returns:
-            配置好的Crew实例
-        """
-        # 创建Agents
-        etl_operator = ETLOperatorAgent.create(
-            llm=self.llm, environment_context=self.environment_context
-        )
-
-        result_validator = ResultValidatorAgent.create(
-            llm=self.llm, environment_context=self.environment_context
-        )
-
-        report_writer = ReportWriterAgent.create(
-            llm=self.llm, environment_context=self.environment_context
-        )
-
-        # 创建Tasks
-        etl_task = self._create_etl_task(etl_operator)
-        validation_task = self._create_validation_task(result_validator, etl_task)
-        report_task = self._create_report_task(report_writer, etl_task, validation_task)
-
-        # 创建Crew
-        crew = Crew(
-            agents=[etl_operator, result_validator, report_writer],
-            tasks=[etl_task, validation_task, report_task],
-            process=Process.sequential,
-            planning=True,
-            memory=True,
-            verbose=True,
-        )
-
-        return crew
-
-    def _create_etl_task(self, agent) -> Task:
-        """
-        创建ETL执行任务
-
-        Args:
-            agent: ETLOperator Agent
-
-        Returns:
-            Task实例
-        """
-        sftp_config = self.sftp_config
-        api_config = self.service_config_dict.get("api", {})
-
-        return Task(
-            description=f"""
-            执行完整的ETL流程，将输入文件上传到SFTP，触发服务处理，等待完成，下载结果。
-            
-            输入文件: {self.input_file}
-            服务配置: {self.service_config_dict.get("name", "unknown")}
-            
-            执行步骤：
-            1. 上传文件到SFTP（使用配置：{sftp_config}）
-               - 本地文件: {self.input_file}
-               - 远程路径: 根据服务配置确定
-               
-            2. 触发服务处理（使用配置：{api_config}）
-               - 调用API触发端点
-               - 获取task_id
-               
-            3. 轮询等待处理完成
-               - 查询状态端点
-               - 直到状态为completed或failed
-               - 最多等待5分钟（30次轮询，每次10秒）
-               
-            4. 下载结果文件
-               - 从SFTP下载生成的结果文件
-               - 保存到本地临时目录
-            
-            注意：
-            - 每个步骤如果失败会自动重试3次
-            - 记录每个步骤的执行时间和状态
-            - 如果任何步骤失败，停止执行并报告
-            
-            输出要求：
-            返回JSON格式结果：
-            {{
-                "success": true/false,
-                "steps": {{
-                    "upload": {{"success": true, "duration": 2.3, "remote_path": "..."}},
-                    "trigger": {{"success": true, "duration": 0.8, "task_id": "..."}},
-                    "wait": {{"success": true, "duration": 105.2, "status": "completed"}},
-                    "download": {{"success": true, "duration": 1.5, "local_path": "..."}}
-                }},
-                "total_duration": 109.8,
-                "result_file": "/path/to/downloaded_result.csv"
-            }}
-            """,
-            expected_output="包含result_file路径的JSON格式执行结果",
-            agent=agent,
-        )
-
-    def _create_validation_task(self, agent, etl_task: Task) -> Task:
-        """
-        创建验证任务
-
-        Args:
-            agent: ResultValidator Agent
-            etl_task: ETL任务（用于获取结果文件路径）
-
-        Returns:
-            Task实例
-        """
-        return Task(
-            description=f"""
-            对比实际结果和预期结果，进行精确的行级对比。
-            
-            从ETL任务获取：
-            - 实际结果文件路径（下载的文件）
-            
-            预期结果文件：
-            - 文件路径: {self.expected_file}
-            
-            对比要求：
-            1. 加载两个文件
-            2. 逐行对比内容是否完全一致
-            3. 记录每一行的对比结果（匹配/差异）
-            4. 对于差异行，记录：
-               - 行号
-               - 预期内容
-               - 实际内容
-            
-            统计信息：
-            - 总行数
-            - 匹配行数
-            - 差异行数
-            - 相似度百分比
-            
-            输出要求：
-            返回JSON格式结果：
-            {{
-                "match": true/false,
-                "statistics": {{
-                    "total_rows": 100,
-                    "matching_rows": 98,
-                    "different_rows": 2,
-                    "similarity": "98.0%"
-                }},
-                "differences": [
-                    {{
-                        "row_number": 15,
-                        "expected": "内容A",
-                        "actual": "内容B"
-                    }}
-                ],
-                "actual_file": "/path/to/actual.csv",
-                "expected_file": "/path/to/expected.csv"
-            }}
-            """,
-            expected_output="包含对比结果和差异详情的JSON",
-            agent=agent,
-            context=[etl_task],
-        )
-
-    def _create_report_task(self, agent, etl_task: Task, validation_task: Task) -> Task:
-        """
-        创建报告生成任务
-
-        Args:
-            agent: ReportWriter Agent
-            etl_task: ETL任务
-            validation_task: 验证任务
-
-        Returns:
-            Task实例
-        """
-        return Task(
-            description=f"""
-            生成完整的测试报告，包含Markdown和HTML两种格式。
-            
-            从ETL任务获取：
-            - ETL执行步骤详情
-            - 各步骤执行时间和状态
-            
-            从验证任务获取：
-            - 对比统计信息
-            - 差异详情
-            - 是否通过
-            
-            报告内容：
-            1. 测试概览（测试ID、服务、环境、时间）
-            2. 统计信息（总行数、匹配数、差异数、相似度）
-            3. ETL执行时间线（各步骤状态和时间）
-            4. 文件对比详情（行级对比结果）
-            5. LLM智能分析（分析差异原因和建议）
-            
-            输出要求：
-            - 生成Markdown报告：{self.output_dir}/{self.test_id}_report.md
-            - 生成HTML报告：{self.output_dir}/{self.test_id}_report.html
-            - 使用科技绿主题模板
-            - HTML报告要有行级高亮（绿色=匹配，红色=差异）
-            
-            返回报告文件路径列表
-            """,
-            expected_output="包含生成的报告文件路径列表",
-            agent=agent,
-            context=[etl_task, validation_task],
-        )
 
     def run(self) -> Dict[str, Any]:
         """
@@ -414,27 +126,244 @@ class ETLTestCrew:
         logger.info(f"🚀 启动ETL测试: {self.test_id}")
         logger.info(f"   输入文件: {self.input_file}")
         logger.info(f"   预期文件: {self.expected_file}")
+        logger.info(f"   服务: {self.service_name}")
 
-        try:
-            # 创建并运行Crew
-            crew = self.create_crew()
-            result = crew.kickoff()
+        # 步骤1: 实际执行ETL
+        etl_result = self._execute_etl()
 
-            logger.info(f"✅ 测试完成: {self.test_id}")
-            logger.info(f"   报告位置: {self.output_dir}")
-
-            return {
-                "success": True,
-                "test_id": self.test_id,
-                "result": result,
-                "output_dir": str(self.output_dir),
-            }
-
-        except Exception as e:
-            logger.error(f"❌ 测试失败: {e}")
+        if not etl_result.get("success"):
+            logger.error(f"❌ ETL执行失败: {etl_result.get('error')}")
+            # 即使失败也生成报告
+            report_paths = self._generate_failure_report(etl_result)
             return {
                 "success": False,
                 "test_id": self.test_id,
-                "error": str(e),
+                "error": etl_result.get("error"),
+                "etl_result": etl_result,
+                "report_paths": report_paths,
                 "output_dir": str(self.output_dir),
             }
+
+        # 步骤2: 结果验证
+        validation_result = self._validate_results(etl_result.get("result_file"))
+
+        # 步骤3: 生成报告（使用CrewAI）
+        report_paths = self._generate_reports(etl_result, validation_result)
+
+        logger.info(f"✅ 测试完成: {self.test_id}")
+        logger.info(f"   报告位置: {report_paths}")
+
+        return {
+            "success": True,
+            "test_id": self.test_id,
+            "etl_result": etl_result,
+            "validation_result": validation_result,
+            "report_paths": report_paths,
+            "output_dir": str(self.output_dir),
+            "overall_pass": validation_result.get("match", False),
+        }
+
+    def _execute_etl(self) -> Dict[str, Any]:
+        """
+        实际执行ETL流程
+
+        Returns:
+            ETL执行结果
+        """
+        logger.info("🔧 执行ETL流程...")
+
+        executor = ETLExecutor()
+
+        # 构建输出文件路径
+        local_output_path = str(self.output_dir / f"result_{self.test_id}.csv")
+
+        # 准备触发配置
+        trigger_cfg = {
+            "endpoint": self.trigger_config.get("endpoint", "")
+            if isinstance(self.trigger_config, dict)
+            else getattr(self.trigger_config, "endpoint", ""),
+            "method": self.trigger_config.get("method", "POST")
+            if isinstance(self.trigger_config, dict)
+            else getattr(self.trigger_config, "method", "POST"),
+            "headers": self.trigger_config.get("headers", {})
+            if isinstance(self.trigger_config, dict)
+            else getattr(self.trigger_config, "headers", {}),
+            "body_template": self.trigger_config.get("body_template", "{}")
+            if isinstance(self.trigger_config, dict)
+            else getattr(self.trigger_config, "body_template", "{}"),
+            "task_id_extractor": self.trigger_config.get(
+                "task_id_extractor", "$.task_id"
+            )
+            if isinstance(self.trigger_config, dict)
+            else getattr(self.trigger_config, "task_id_extractor", "$.task_id"),
+        }
+
+        # 准备轮询配置
+        polling_cfg = {
+            "status_endpoint": self.polling_config.get("status_check_endpoint", "")
+            if isinstance(self.polling_config, dict)
+            else getattr(self.polling_config, "status_check_endpoint", ""),
+            "status_extractor": "$.status",
+            "success_statuses": ["completed", "success"],
+            "failure_statuses": ["failed", "error"],
+            "max_attempts": self.polling_config.get("max_attempts", 30)
+            if isinstance(self.polling_config, dict)
+            else getattr(self.polling_config, "max_attempts", 30),
+            "interval": self.polling_config.get("interval", 10)
+            if isinstance(self.polling_config, dict)
+            else getattr(self.polling_config, "interval", 10),
+        }
+
+        result = executor.execute_full_etl(
+            input_file=self.input_file,
+            output_file=local_output_path,
+            sftp_config=self.sftp_config,
+            trigger_config=trigger_cfg,
+            polling_config=polling_cfg,
+        )
+
+        return result
+
+    def _validate_results(self, actual_file: str) -> Dict[str, Any]:
+        """
+        验证实际结果与预期结果
+
+        Args:
+            actual_file: 实际结果文件路径
+
+        Returns:
+            验证结果
+        """
+        logger.info("🔍 验证结果...")
+
+        if not actual_file or not Path(actual_file).exists():
+            return {
+                "match": False,
+                "error": "实际结果文件不存在",
+                "statistics": {
+                    "total_rows": 0,
+                    "matching_rows": 0,
+                    "different_rows": 0,
+                    "similarity": "0%",
+                },
+            }
+
+        try:
+            # 读取两个文件
+            with open(self.expected_file, "r", encoding="utf-8") as f:
+                expected_lines = f.readlines()
+            with open(actual_file, "r", encoding="utf-8") as f:
+                actual_lines = f.readlines()
+
+            # 逐行对比
+            differences = []
+            matching = 0
+            different = 0
+            max_rows = max(len(expected_lines), len(actual_lines))
+
+            for i in range(max_rows):
+                exp_line = (
+                    expected_lines[i].strip()
+                    if i < len(expected_lines)
+                    else "<MISSING>"
+                )
+                act_line = (
+                    actual_lines[i].strip() if i < len(actual_lines) else "<MISSING>"
+                )
+
+                if exp_line == act_line:
+                    matching += 1
+                else:
+                    different += 1
+                    differences.append(
+                        {
+                            "row_number": i + 1,
+                            "expected": exp_line,
+                            "actual": act_line,
+                        }
+                    )
+
+            similarity = (matching / max_rows * 100) if max_rows > 0 else 0
+
+            return {
+                "match": different == 0,
+                "statistics": {
+                    "total_rows": max_rows,
+                    "matching_rows": matching,
+                    "different_rows": different,
+                    "similarity": f"{similarity:.1f}%",
+                },
+                "differences": differences,
+                "actual_file": actual_file,
+                "expected_file": self.expected_file,
+            }
+
+        except Exception as e:
+            logger.error(f"❌ 验证失败: {e}")
+            return {
+                "match": False,
+                "error": str(e),
+                "statistics": {
+                    "total_rows": 0,
+                    "matching_rows": 0,
+                    "different_rows": 0,
+                    "similarity": "0%",
+                },
+            }
+
+    def _generate_reports(self, etl_result: Dict, validation_result: Dict) -> list:
+        """
+        使用CrewAI生成报告
+
+        Args:
+            etl_result: ETL执行结果
+            validation_result: 验证结果
+
+        Returns:
+            生成的报告文件路径列表
+        """
+        logger.info("📄 生成报告...")
+
+        # 简化：直接使用 ReportWriter Agent 生成报告
+        # 跳过复杂的 Crew 编排，直接调用报告生成
+        from ..utils.report_generator import ReportGenerator
+
+        generator = ReportGenerator(self.output_dir, self.llm)
+
+        report_data = {
+            "test_id": self.test_id,
+            "service_name": self.service_name,
+            "environment": self.environment,
+            "timestamp": datetime.now().isoformat(),
+            "etl_result": etl_result,
+            "validation_result": validation_result,
+        }
+
+        paths = generator.generate_both_formats(report_data)
+        return paths
+
+    def _generate_failure_report(self, etl_result: Dict) -> list:
+        """
+        ETL失败时生成失败报告
+
+        Args:
+            etl_result: ETL执行结果
+
+        Returns:
+            报告文件路径列表
+        """
+        from ..utils.report_generator import ReportGenerator
+
+        generator = ReportGenerator(self.output_dir, self.llm)
+
+        report_data = {
+            "test_id": self.test_id,
+            "service_name": self.service_name,
+            "environment": self.environment,
+            "timestamp": datetime.now().isoformat(),
+            "etl_result": etl_result,
+            "validation_result": {"match": False, "error": "ETL执行失败，未进行验证"},
+        }
+
+        paths = generator.generate_both_formats(report_data)
+        return paths

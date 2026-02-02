@@ -1,0 +1,4 @@
+order_id,amount,status
+ORD001,100.00,pending
+ORD002,50.00,pending
+ORD003,200.00,pending
