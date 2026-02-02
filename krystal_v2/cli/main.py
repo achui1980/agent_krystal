@@ -10,7 +10,8 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 # 加载环境变量
-load_dotenv()
+load_dotenv()  # 加载默认 .env
+# 注意：环境特定的配置在 run_test 中根据 --env 参数加载
 
 # 添加项目根目录到路径
 project_root = Path(__file__).parent.parent.parent
@@ -85,6 +86,13 @@ def cli():
 
 def run_test(args):
     """执行测试命令"""
+    # 强制加载环境特定的 secrets.env（覆盖 .env 中的值）
+    from dotenv import load_dotenv
+
+    env_file = Path(f"config/{args.env}/secrets.env")
+    if env_file.exists():
+        load_dotenv(env_file, override=True)
+
     print(f"🔮 Krystal v2.0 - Intelligent ETL Testing")
     print(f"{'=' * 60}")
     print(f"输入文件: {args.input_file}")

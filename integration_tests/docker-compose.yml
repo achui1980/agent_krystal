@@ -11,11 +11,6 @@ services:
     environment:
       SFTP_USERS: "testuser:testpass:1000:1000:upload"
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "sh", "-c", "nc -z localhost 22 || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
   api-stub:
     build:
@@ -25,16 +20,15 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - sftp-data:/sftp-data:ro
+      - sftp-data:/sftp-data
     environment:
       - SFTP_HOST=sftp
       - SFTP_PORT=22
       - SFTP_USERNAME=testuser
       - SFTP_PASSWORD=testpass
-      - SFTP_BASE_PATH=/home/testuser
+      - SFTP_BASE_PATH=/sftp-data
     depends_on:
-      sftp:
-        condition: service_healthy
+      - sftp
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]

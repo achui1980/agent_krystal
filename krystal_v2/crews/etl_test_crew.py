@@ -86,11 +86,19 @@ class ETLTestCrew:
                 if isinstance(upload, dict)
                 else "/uploads"
             )
+            # Extract validation config
+            validation = (
+                self.service_config.validation
+                if hasattr(self.service_config, "validation")
+                else {}
+            )
+            self.validation_config = validation if isinstance(validation, dict) else {}
         else:
             self.service_name = "unknown"
             self.trigger_config = {}
             self.polling_config = {}
             self.remote_upload_path = "/uploads"
+            self.validation_config = {}
 
         # SFTP配置（从全局配置）
         self.sftp_config = {}
@@ -229,6 +237,7 @@ class ETLTestCrew:
             sftp_config=sftp_cfg_with_upload,
             trigger_config=trigger_cfg,
             polling_config=polling_cfg,
+            validation_config=self.validation_config,
         )
 
         return result
@@ -320,7 +329,9 @@ class ETLTestCrew:
                 },
             }
 
-    def _generate_reports(self, etl_result: Dict, validation_result: Dict) -> list:
+    def _generate_reports(
+        self, etl_result: Dict, validation_result: Dict
+    ) -> Dict[str, str]:
         """
         使用CrewAI生成报告
 
@@ -333,25 +344,68 @@ class ETLTestCrew:
         """
         logger.info("📄 生成报告...")
 
-        # 简化：直接使用 ReportWriter Agent 生成报告
-        # 跳过复杂的 Crew 编排，直接调用报告生成
         from ..utils.report_generator import ReportGenerator
 
         generator = ReportGenerator(str(self.output_dir))
 
+        # 提取ETL步骤数据
+        steps = etl_result.get("steps", {})
+        etl_steps = []
+        for step_name, step_data in steps.items():
+            etl_steps.append(
+                {
+                    "name": step_name.capitalize(),
+                    "duration": step_data.get("duration", 0),
+                    "success": step_data.get("success", False),
+                    "message": step_data.get("message", ""),
+                }
+            )
+
+        # 提取验证统计数据
+        stats = validation_result.get("statistics", {})
+        total_rows = stats.get("total_rows", 0)
+        matching_rows = stats.get("matching_rows", 0)
+        different_rows = stats.get("different_rows", 0)
+        similarity_str = stats.get("similarity", "0%")
+        try:
+            similarity = float(similarity_str.replace("%", ""))
+        except:
+            similarity = 0
+
+        # 提取差异详情
+        differences = validation_result.get("differences", [])
+        comparison_rows = []
+        for diff in differences:
+            comparison_rows.append(
+                {
+                    "row_number": diff.get("row_number", 0),
+                    "expected": diff.get("expected", ""),
+                    "actual": diff.get("actual", ""),
+                    "match": False,
+                }
+            )
+
+        # 构建报告数据（匹配ReportGenerator期望的格式）
         report_data = {
             "test_id": self.test_id,
             "service_name": self.service_name,
             "environment": self.environment,
             "timestamp": datetime.now().isoformat(),
-            "etl_result": etl_result,
-            "validation_result": validation_result,
+            "overall_pass": validation_result.get("match", False),
+            "total_duration": etl_result.get("total_duration", 0),
+            "etl_steps": etl_steps,
+            "total_rows": total_rows,
+            "matching_rows": matching_rows,
+            "different_rows": different_rows,
+            "similarity": similarity,
+            "comparison_rows": comparison_rows,
+            "llm_analysis": None,
         }
 
         paths = generator.generate_both_formats(report_data)
         return paths
 
-    def _generate_failure_report(self, etl_result: Dict) -> list:
+    def _generate_failure_report(self, etl_result: Dict) -> Dict[str, str]:
         """
         ETL失败时生成失败报告
 
@@ -359,19 +413,39 @@ class ETLTestCrew:
             etl_result: ETL执行结果
 
         Returns:
-            报告文件路径列表
+            报告文件路径字典
         """
         from ..utils.report_generator import ReportGenerator
 
         generator = ReportGenerator(str(self.output_dir))
+
+        # 提取ETL步骤数据（即使失败也可能有部分步骤成功）
+        steps = etl_result.get("steps", {})
+        etl_steps = []
+        for step_name, step_data in steps.items():
+            etl_steps.append(
+                {
+                    "name": step_name.capitalize(),
+                    "duration": step_data.get("duration", 0),
+                    "success": step_data.get("success", False),
+                    "message": step_data.get("message", ""),
+                }
+            )
 
         report_data = {
             "test_id": self.test_id,
             "service_name": self.service_name,
             "environment": self.environment,
             "timestamp": datetime.now().isoformat(),
-            "etl_result": etl_result,
-            "validation_result": {"match": False, "error": "ETL执行失败，未进行验证"},
+            "overall_pass": False,
+            "total_duration": etl_result.get("total_duration", 0),
+            "etl_steps": etl_steps,
+            "total_rows": 0,
+            "matching_rows": 0,
+            "different_rows": 0,
+            "similarity": 0,
+            "comparison_rows": [],
+            "llm_analysis": f"ETL执行失败: {etl_result.get('error', 'Unknown error')}",
         }
 
         paths = generator.generate_both_formats(report_data)

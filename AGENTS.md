@@ -2,6 +2,11 @@
 
 This document provides essential commands and guidelines for agents working on the Krystal end-to-end testing framework.
 
+## Versions
+
+- **Krystal v1.0**: Legacy CrewAI-based framework (in `krystal/`)
+- **Krystal v2.0**: Hybrid ETL testing framework with simplified execution (in `krystal_v2/`)
+
 ## Build, Test & Lint Commands
 
 ### Installation
@@ -31,7 +36,33 @@ python run_tests.py --env dev --validate-only
 python run_tests.py --env dev --list
 ```
 
-### Using CLI
+### Krystal v2.0 Commands
+
+**Run v2.0 E2E test:**
+```bash
+python -m krystal_v2.cli.main test \
+  --input-file test_data_v2/input.csv \
+  --expected-file test_data_v2/expected.csv \
+  --service local-payment-service \
+  --env local \
+  --output-dir ./reports_v2
+```
+
+**Run with specific service:**
+```bash
+python -m krystal_v2.cli.main test \
+  -i input.csv \
+  -e expected.csv \
+  -s payment-service \
+  --env dev
+```
+
+**View version:**
+```bash
+python -m krystal_v2.cli.main version
+```
+
+### Using CLI (v1.0)
 ```bash
 # Run tests with report
 krystal --env dev run --services payment-service --report
@@ -145,6 +176,8 @@ class MyTool(BaseTool):
 - Always validate YAML syntax before running
 
 ## Project Structure
+
+### v1.0 (Legacy)
 ```
 krystal/
 ├── agents/          # CrewAI agent definitions
@@ -153,6 +186,35 @@ krystal/
 ├── config.py        # Configuration management
 ├── runner.py        # Test execution logic
 └── report.py        # Report generation
+```
+
+### v2.0 (Current)
+```
+krystal_v2/
+├── cli/
+│   └── main.py              # CLI entry point
+├── agents/
+│   ├── etl_operator.py      # ETL execution agent
+│   ├── result_validator.py  # Result validation agent
+│   └── report_writer.py     # Report generation agent
+├── crews/
+│   └── etl_test_crew.py     # Crew orchestration
+├── execution/
+│   └── etl_executor.py      # Real ETL execution logic
+├── utils/
+│   ├── report_generator.py  # Report generation utilities
+│   └── retry_decorator.py   # Tenacity retry wrapper
+└── templates/
+    └── report_template.html # Tech-green HTML template
+```
+
+### Shared Components
+```
+krystal/
+└── tools/           # Shared tools (SFTP, API, Polling)
+    ├── sftp_client.py
+    ├── api_client.py
+    └── polling_service.py
 ```
 
 ## Environment Variables Required

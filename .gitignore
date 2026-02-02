@@ -45,6 +45,12 @@ reports/*.json
 reports/*.html
 !reports/.gitkeep
 
+reports_v2/*.md
+reports_v2/*.json
+reports_v2/*.html
+reports_v2/*.csv
+!reports_v2/.gitkeep
+
 # Temp files
 /tmp/
 *.tmp

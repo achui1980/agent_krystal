@@ -355,6 +355,7 @@ class ETLExecutor:
         sftp_config: Dict[str, Any],
         trigger_config: Dict[str, Any],
         polling_config: Dict[str, Any],
+        validation_config: Dict[str, Any] = None,
     ) -> Dict[str, Any]:
         """
         执行完整的ETL流程
@@ -397,13 +398,28 @@ class ETLExecutor:
             return results
 
         # Step 2: Trigger
+        # Generate batch_id and count rows for template variables
+        import uuid
+
+        batch_id = f"batch_{uuid.uuid4().hex[:8]}"
+        try:
+            with open(input_file, "r") as f:
+                row_count = sum(1 for _ in f) - 1  # Subtract 1 for header
+        except:
+            row_count = 0
+
         trigger_result = self.trigger_service(
             endpoint=trigger_config.get("endpoint", ""),
             method=trigger_config.get("method", "POST"),
             headers=trigger_config.get("headers", {}),
             body_template=trigger_config.get("body_template", ""),
             task_id_extractor=trigger_config.get("task_id_extractor", ""),
-            variables={"remote_path": remote_path},
+            variables={
+                "remote_file_path": remote_path,
+                "remote_path": remote_path,
+                "batch_id": batch_id,
+                "row_count": row_count,
+            },
         )
         results["steps"]["trigger"] = trigger_result
 
@@ -441,12 +457,26 @@ class ETLExecutor:
             return results
 
         # Step 4: Download
-        download_remote_path = (
-            sftp_config.get("remote_base_path", "/uploads")
-            + "/output/"
-            + task_id
-            + ".csv"
-        )
+        # Build download path using validation config template if available
+        validation_config = validation_config or {}
+        remote_result_template = validation_config.get("remote_result_path", "")
+
+        if remote_result_template:
+            # Render template with batch_id
+            from krystal.tools.api_client import TemplateRenderTool
+
+            render_tool = TemplateRenderTool()
+            render_result = render_tool._run(
+                template=remote_result_template, variables={"batch_id": batch_id}
+            )
+            if render_result.get("success"):
+                download_remote_path = render_result.get("rendered", "")
+            else:
+                # Fallback to hardcoded path
+                download_remote_path = f"/uploads/payment/output/{batch_id}_result.csv"
+        else:
+            # Fallback to hardcoded path
+            download_remote_path = f"/uploads/payment/output/{batch_id}_result.csv"
         download_result = self.download_from_sftp(
             remote_path=download_remote_path,
             local_path=output_file,

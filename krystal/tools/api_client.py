@@ -123,13 +123,17 @@ class APIClientTool(BaseTool):
             except ValueError:
                 response_body = response.text
 
+            is_success = 200 <= response.status_code < 300
             return {
-                "success": 200 <= response.status_code < 300,
+                "success": is_success,
                 "status_code": response.status_code,
                 "headers": dict(response.headers),
                 "body": response_body,
                 "url": response.url,
-                "message": f"API call successful: {response.status_code}",
+                "error": None if is_success else f"HTTP {response.status_code}",
+                "message": f"API call successful: {response.status_code}"
+                if is_success
+                else f"API call failed: {response.status_code}",
             }
 
         except requests.exceptions.Timeout:
