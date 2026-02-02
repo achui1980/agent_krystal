@@ -381,11 +381,9 @@ class ETLExecutor:
         }
 
         # Step 1: Upload
-        remote_path = (
-            sftp_config.get("remote_base_path", "/uploads")
-            + "/"
-            + Path(input_file).name
-        )
+        # Use upload remote path from config, fallback to /uploads
+        remote_base = sftp_config.get("upload_remote_path", "/uploads")
+        remote_path = remote_base + "/" + Path(input_file).name
         upload_result = self.upload_to_sftp(
             local_path=input_file,
             remote_path=remote_path,

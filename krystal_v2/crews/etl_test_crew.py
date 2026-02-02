@@ -198,6 +198,15 @@ class ETLTestCrew:
             else getattr(self.trigger_config, "task_id_extractor", "$.task_id"),
         }
 
+        # 添加 upload 路径到 sftp_config
+        upload_remote_path = (
+            self.remote_upload_path
+            if hasattr(self, "remote_upload_path")
+            else "/uploads"
+        )
+        sftp_cfg_with_upload = self.sftp_config.copy()
+        sftp_cfg_with_upload["upload_remote_path"] = upload_remote_path
+
         # 准备轮询配置
         polling_cfg = {
             "status_endpoint": self.polling_config.get("status_check_endpoint", "")
@@ -217,7 +226,7 @@ class ETLTestCrew:
         result = executor.execute_full_etl(
             input_file=self.input_file,
             output_file=local_output_path,
-            sftp_config=self.sftp_config,
+            sftp_config=sftp_cfg_with_upload,
             trigger_config=trigger_cfg,
             polling_config=polling_cfg,
         )
@@ -328,7 +337,7 @@ class ETLTestCrew:
         # 跳过复杂的 Crew 编排，直接调用报告生成
         from ..utils.report_generator import ReportGenerator
 
-        generator = ReportGenerator(self.output_dir, self.llm)
+        generator = ReportGenerator(str(self.output_dir))
 
         report_data = {
             "test_id": self.test_id,
@@ -354,7 +363,7 @@ class ETLTestCrew:
         """
         from ..utils.report_generator import ReportGenerator
 
-        generator = ReportGenerator(self.output_dir, self.llm)
+        generator = ReportGenerator(str(self.output_dir))
 
         report_data = {
             "test_id": self.test_id,
