@@ -6,6 +6,7 @@ Krystal v2.0 CLI - 命令行入口
 import argparse
 import sys
 import os
+import logging
 from pathlib import Path
 from dotenv import load_dotenv
 
@@ -16,6 +17,23 @@ load_dotenv()  # 加载默认 .env
 # 添加项目根目录到路径
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
+
+# 配置日志
+log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+date_format = "%H:%M:%S"
+
+# 控制台处理器
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.INFO)
+console_handler.setFormatter(logging.Formatter(log_format, date_format))
+
+# 根日志配置
+logging.basicConfig(
+    level=logging.INFO,
+    format=log_format,
+    datefmt=date_format,
+    handlers=[console_handler],
+)
 
 from krystal_v2.crews.etl_test_crew import ETLTestCrew
 from krystal.config import ConfigManager
@@ -86,12 +104,44 @@ def cli():
 
 def run_test(args):
     """执行测试命令"""
-    # 强制加载环境特定的 secrets.env（覆盖 .env 中的值）
     from dotenv import load_dotenv
+    from datetime import datetime
 
+    # 1. 先加载 .env 文件（根目录）
+    root_env = Path(".env")
+    if root_env.exists():
+        load_dotenv(root_env)
+        logging.info(f"✅ 已加载 .env 文件")
+
+    # 2. 加载环境特定的 secrets.env（作为基础配置）
     env_file = Path(f"config/{args.env}/secrets.env")
     if env_file.exists():
-        load_dotenv(env_file, override=True)
+        load_dotenv(env_file)
+        logging.info(f"✅ 已加载 {env_file}")
+
+    # 3. 再次加载 .env，用 .env 的值覆盖 secrets.env（.env 优先级更高）
+    if root_env.exists():
+        load_dotenv(root_env, override=True)
+        logging.info(f"✅ 用 .env 覆盖 secrets.env（优先级：.env > secrets.env）")
+
+    # 设置文件日志处理器 - 放到 logs 目录
+    logs_path = Path("./logs")
+    logs_path.mkdir(parents=True, exist_ok=True)
+    log_file = logs_path / f"krystal_{datetime.now().strftime('%Y%m%d_%H%M%S')}.log"
+
+    file_handler = logging.FileHandler(log_file, encoding="utf-8")
+    file_handler.setLevel(logging.INFO)
+    file_handler.setFormatter(
+        logging.Formatter(
+            "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+            datefmt="%Y-%m-%d %H:%M:%S",
+        )
+    )
+
+    # 添加到根日志记录器
+    logging.getLogger().addHandler(file_handler)
+
+    logging.info(f"📝 日志文件: {log_file}")
 
     print(f"🔮 Krystal v2.0 - Intelligent ETL Testing")
     print(f"{'=' * 60}")
@@ -99,7 +149,9 @@ def run_test(args):
     print(f"预期文件: {args.expected_file}")
     print(f"服务: {args.service}")
     print(f"环境: {args.env}")
-    print(f"输出目录: {args.output_dir}")
+    print(f"报告目录: {args.output_dir}")
+    print(f"日志目录: {logs_path}")
+    print(f"日志文件: {log_file}")
     print(f"{'=' * 60}\n")
 
     # 验证输入文件存在

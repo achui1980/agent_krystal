@@ -3,11 +3,102 @@ Simple report generator for Krystal v2.0
 Generates Markdown and HTML reports without CrewAI
 """
 
+import json
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from jinja2 import Environment, FileSystemLoader
+
+
+def format_llm_analysis(llm_analysis: str) -> str:
+    """
+    将JSON格式的LLM分析转换成易读的Markdown格式
+
+    Args:
+        llm_analysis: JSON字符串或普通文本
+
+    Returns:
+        格式化的Markdown字符串
+    """
+    if not llm_analysis or not isinstance(llm_analysis, str):
+        return "_LLM analysis not available._"
+
+    # 尝试解析JSON
+    try:
+        data = json.loads(llm_analysis)
+
+        # 如果不是字典，返回原始内容
+        if not isinstance(data, dict):
+            return llm_analysis
+
+        md_lines = []
+
+        # 严重性（Severity）
+        severity = data.get("severity", "").lower()
+        if severity:
+            if severity == "high":
+                md_lines.append(f"**严重性:** 🔴 **HIGH** (高)")
+            elif severity == "medium":
+                md_lines.append(f"**严重性:** 🟡 **MEDIUM** (中)")
+            elif severity == "low":
+                md_lines.append(f"**严重性:** 🟢 **LOW** (低)")
+            else:
+                md_lines.append(f"**严重性:** {severity}")
+            md_lines.append("")
+
+        # 可接受性（Acceptable）
+        acceptable = data.get("acceptable")
+        if acceptable is not None:
+            status = "✅ 可接受" if acceptable else "❌ 不可接受"
+            md_lines.append(f"**验证结果:** {status}")
+            md_lines.append("")
+
+        # 分析（Analysis）
+        analysis = data.get("analysis", "")
+        if analysis:
+            md_lines.append("### 📊 差异分析")
+            md_lines.append("")
+            # 处理转义的换行符
+            analysis_clean = analysis.replace("\\n", "\n")
+            md_lines.append(analysis_clean)
+            md_lines.append("")
+
+        # 根本原因（Root Cause）
+        root_cause = data.get("root_cause", "")
+        if root_cause:
+            md_lines.append("### 🔍 根本原因")
+            md_lines.append("")
+            root_cause_clean = root_cause.replace("\\n", "\n")
+            md_lines.append(root_cause_clean)
+            md_lines.append("")
+
+        # 建议（Recommendations）
+        recommendations = data.get("recommendations", [])
+        if recommendations and isinstance(recommendations, list):
+            md_lines.append("### 💡 改进建议")
+            md_lines.append("")
+            for i, rec in enumerate(recommendations, 1):
+                rec_clean = rec.replace("\\n", "\n")
+                # 如果建议包含多行，添加缩进
+                if "\n" in rec_clean:
+                    lines = rec_clean.split("\n")
+                    md_lines.append(f"{i}. {lines[0]}")
+                    for line in lines[1:]:
+                        if line.strip():
+                            md_lines.append(f"   {line}")
+                else:
+                    md_lines.append(f"{i}. {rec_clean}")
+            md_lines.append("")
+
+        return "\n".join(md_lines)
+
+    except json.JSONDecodeError:
+        # 不是JSON格式，返回原始内容
+        return llm_analysis
+    except Exception:
+        # 其他错误，返回原始内容
+        return llm_analysis
 
 
 class ReportGenerator:
@@ -136,7 +227,9 @@ class ReportGenerator:
         )
 
         if llm_analysis:
-            md_lines.append(llm_analysis)
+            # 格式化LLM分析（如果是JSON则转换为易读的Markdown）
+            formatted_analysis = format_llm_analysis(llm_analysis)
+            md_lines.append(formatted_analysis)
         else:
             md_lines.append(
                 "_LLM analysis not available. This section can be populated with AI-generated insights about the test results._"
