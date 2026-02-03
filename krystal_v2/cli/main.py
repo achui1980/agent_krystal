@@ -53,8 +53,8 @@ def cli():
   # 指定环境
   krystal test --input-file data.csv --expected-file expected.csv --service payment-service --env local
   
-  # 指定输出目录
-  krystal test --input-file data.csv --expected-file expected.csv --service payment-service --output-dir ./my-reports
+        # 指定输出目录
+  krystal test --input-file data.csv --expected-file expected.csv --service payment-service --output-dir ./reports_v2
         """,
     )
 
@@ -78,7 +78,10 @@ def cli():
         help="环境 (默认: local)",
     )
     test_parser.add_argument(
-        "--output-dir", "-o", default="./reports", help="报告输出目录 (默认: ./reports)"
+        "--output-dir",
+        "-o",
+        default="./reports_v2",
+        help="报告输出目录 (默认: ./reports_v2)",
     )
     test_parser.add_argument(
         "--verbose",
@@ -86,6 +89,13 @@ def cli():
         action="store_true",
         default=True,
         help="详细输出模式 (默认: True)",
+    )
+    test_parser.add_argument(
+        "--mode",
+        "-m",
+        default="fast",
+        choices=["fast", "crewai"],
+        help="执行模式: fast=直接代码执行 (默认), crewai=Agent编排模式",
     )
 
     # version 命令
@@ -149,6 +159,7 @@ def run_test(args):
     print(f"预期文件: {args.expected_file}")
     print(f"服务: {args.service}")
     print(f"环境: {args.env}")
+    print(f"执行模式: {args.mode}")
     print(f"报告目录: {args.output_dir}")
     print(f"日志目录: {logs_path}")
     print(f"日志文件: {log_file}")
@@ -190,6 +201,7 @@ def run_test(args):
             global_config=global_config,
             environment=args.env,
             output_dir=args.output_dir,
+            mode=args.mode,
         )
 
         result = crew.run()

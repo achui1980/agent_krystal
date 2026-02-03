@@ -23,7 +23,7 @@ class ReportWriterAgent:
     2. 生成美观的HTML格式测试报告
     3. 使用Jinja2模板渲染HTML
     4. 包含LLM智能差异分析
-    5. 将报告保存到./reports/目录
+    5. 将报告保存到./reports_v2/目录
     """
 
     @staticmethod
@@ -48,7 +48,7 @@ class ReportWriterAgent:
             2. 生成HTML格式报告：美观、交互性强，使用Jinja2模板渲染
             3. 整合测试结果数据：测试概览、执行时间线、对比统计、差异详情
             4. 利用LLM进行智能差异分析：深入解读差异原因，提供改进建议
-            5. 将报告保存到./reports/目录，按时间戳命名
+            5. 将报告保存到./reports_v2/目录，按时间戳命名
             
             你注重报告的可读性和专业性，确保所有关键信息一目了然。
             你的报告是团队协作和质量追溯的重要依据。
@@ -70,7 +70,7 @@ class ReportWriterAgent:
         comparison_rows: List[Dict[str, Any]],
         etl_steps: List[Dict[str, Any]],
         llm_analysis: str = "",
-        output_dir: str = "./reports",
+        output_dir: str = "./reports_v2",
     ) -> Dict[str, Any]:
         """
         生成Markdown格式测试报告
@@ -183,7 +183,7 @@ class ReportWriterAgent:
         comparison_rows: List[Dict[str, Any]],
         etl_steps: List[Dict[str, Any]],
         llm_analysis: str = "",
-        output_dir: str = "./reports",
+        output_dir: str = "./reports_v2",
         template_dir: str = None,
     ) -> Dict[str, Any]:
         """
@@ -278,7 +278,7 @@ class ReportWriterAgent:
         comparison_rows: List[Dict[str, Any]],
         etl_steps: List[Dict[str, Any]],
         llm_analysis: str = "",
-        output_dir: str = "./reports",
+        output_dir: str = "./reports_v2",
     ) -> Dict[str, Any]:
         """
         同时生成Markdown和HTML两种格式的报告

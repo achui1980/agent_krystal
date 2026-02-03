@@ -14,6 +14,7 @@ from crewai.llm import LLM
 
 from ..agents import ETLOperatorAgent, ResultValidatorAgent, ReportWriterAgent
 from ..execution.etl_executor import ETLExecutor
+from ..tasks import create_etl_tasks
 
 
 logger = logging.getLogger(__name__)
@@ -36,8 +37,9 @@ class ETLTestCrew:
         service_config: Any,
         global_config: Any = None,
         environment: str = "local",
-        output_dir: str = "./reports",
+        output_dir: str = "./reports_v2",
         llm=None,
+        mode: str = "fast",
     ):
         self.input_file = input_file
         self.expected_file = expected_file
@@ -46,6 +48,7 @@ class ETLTestCrew:
         self.environment = environment
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
+        self.mode = mode
 
         # 生成测试ID
         self.test_id = f"etl_test_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
@@ -167,11 +170,18 @@ class ETLTestCrew:
         logger.info(f"   输入文件: {self.input_file}")
         logger.info(f"   预期文件: {self.expected_file}")
         logger.info(f"   服务: {self.service_name}")
-        logger.info(f"   Agent协作模式已启用")
+        logger.info(f"   执行模式: {self.mode}")
 
-        # 步骤1: ETL执行（快速代码执行）
-        logger.info("\n📋 步骤1: ETL执行（快速模式）")
-        etl_result = self._execute_etl()
+        if self.mode == "fast":
+            logger.info(f"   Fast模式: 直接代码执行")
+            # 步骤1: ETL执行（快速代码执行）
+            logger.info("\n📋 步骤1: ETL执行（Fast模式 - 直接代码执行）")
+            etl_result = self._execute_etl()
+        else:
+            logger.info(f"   CrewAI模式: Agent编排ETL流程")
+            # 步骤1: ETL执行（CrewAI编排）
+            logger.info("\n📋 步骤1: ETL执行（CrewAI模式 - Agent编排）")
+            etl_result = self._run_etl_with_crewai()
 
         if not etl_result.get("success"):
             logger.error(f"❌ ETL执行失败: {etl_result.get('error')}")
@@ -274,6 +284,126 @@ class ETLTestCrew:
             polling_config=polling_cfg,
             validation_config=self.validation_config,
         )
+
+        return result
+
+    def _run_etl_with_crewai(self) -> Dict[str, Any]:
+        """
+        使用CrewAI Agent编排执行ETL流程
+
+        Returns:
+            ETL执行结果
+        """
+        logger.info("🎭 创建CrewAI ETL编排任务...")
+        logger.info(f"   Agent ETLOperator将执行上传→触发→轮询→下载流程")
+
+        # 构建输出文件路径
+        local_output_path = str(self.output_dir / f"result_{self.test_id}.csv")
+
+        # 准备配置
+        trigger_cfg = {
+            "endpoint": self.trigger_config.get("endpoint", "")
+            if isinstance(self.trigger_config, dict)
+            else getattr(self.trigger_config, "endpoint", ""),
+            "method": self.trigger_config.get("method", "POST")
+            if isinstance(self.trigger_config, dict)
+            else getattr(self.trigger_config, "method", "POST"),
+            "headers": self.trigger_config.get("headers", {})
+            if isinstance(self.trigger_config, dict)
+            else getattr(self.trigger_config, "headers", {}),
+            "task_id_extractor": self.trigger_config.get(
+                "task_id_extractor", "$.task_id"
+            )
+            if isinstance(self.trigger_config, dict)
+            else getattr(self.trigger_config, "task_id_extractor", "$.task_id"),
+        }
+
+        polling_cfg = {
+            "status_endpoint": self.polling_config.get("status_check_endpoint", "")
+            if isinstance(self.polling_config, dict)
+            else getattr(self.polling_config, "status_check_endpoint", ""),
+            "status_extractor": "$.status",
+            "success_statuses": ["completed", "success"],
+            "failure_statuses": ["failed", "error"],
+            "max_attempts": self.polling_config.get("max_attempts", 30)
+            if isinstance(self.polling_config, dict)
+            else getattr(self.polling_config, "max_attempts", 30),
+            "interval": self.polling_config.get("interval", 10)
+            if isinstance(self.polling_config, dict)
+            else getattr(self.polling_config, "interval", 10),
+        }
+
+        # 创建ETL任务（Agent 已在 _create_agents() 中绑定了 tools）
+        tasks_dict = create_etl_tasks(
+            agent=self.etl_agent,
+            input_file=self.input_file,
+            output_file=local_output_path,
+            sftp_config=self.sftp_config,
+            trigger_config=trigger_cfg,
+            polling_config=polling_cfg,
+            remote_upload_path=self.remote_upload_path
+            if hasattr(self, "remote_upload_path")
+            else "/uploads",
+        )
+
+        # 创建ETL执行Crew
+        logger.info("🎭 启动CrewAI ETL编排...")
+        etl_crew = Crew(
+            agents=[self.etl_agent],
+            tasks=[
+                tasks_dict["upload"],
+                tasks_dict["trigger"],
+                tasks_dict["poll"],
+                tasks_dict["download"],
+            ],
+            process=Process.sequential,
+            verbose=True,
+        )
+
+        # 执行ETL编排
+        logger.info("🤖 Agent ETLOperator开始执行ETL流程...")
+        try:
+            crew_result = etl_crew.kickoff()
+            logger.info(f"✅ CrewAI ETL编排完成")
+            logger.info(f"📝 Agent执行结果: {crew_result}")
+
+            # 构建执行结果
+            result = {
+                "success": True,
+                "result_file": local_output_path,
+                "total_duration": 0,  # Will be updated by steps
+                "steps": {
+                    "upload": {
+                        "success": True,
+                        "duration": 0,
+                        "message": "Agent执行完成",
+                    },
+                    "trigger": {
+                        "success": True,
+                        "duration": 0,
+                        "message": "Agent执行完成",
+                    },
+                    "poll": {
+                        "success": True,
+                        "duration": 0,
+                        "message": "Agent执行完成",
+                    },
+                    "download": {
+                        "success": True,
+                        "duration": 0,
+                        "message": "Agent执行完成",
+                    },
+                },
+                "crewai_result": str(crew_result),
+            }
+
+        except Exception as e:
+            logger.error(f"❌ CrewAI ETL编排失败: {e}")
+            result = {
+                "success": False,
+                "error": f"CrewAI ETL编排失败: {e}",
+                "steps": {},
+            }
 
         return result
 

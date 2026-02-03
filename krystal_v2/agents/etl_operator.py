@@ -4,12 +4,15 @@ ETL Operator Agent - ETL流程执行专家
 """
 
 import logging
-from typing import Dict, Any
-from crewai import Agent, Task
-from crewai.tools import BaseTool
+from typing import Dict, Any, List
+from crewai import Agent
 from pydantic import BaseModel, Field
 
-from ..utils.retry_decorator import network_retry
+from krystal.tools.sftp_client import SFTPClientTool, SFTPFileCheckTool
+from krystal.tools.api_client import APIClientTool, JSONExtractorTool
+
+
+logger = logging.getLogger(__name__)
 
 
 logger = logging.getLogger(__name__)
@@ -99,112 +102,10 @@ class ETLOperatorAgent:
             verbose=True,
             allow_delegation=False,
             llm=llm,
+            tools=[
+                SFTPClientTool(),
+                SFTPFileCheckTool(),
+                APIClientTool(),
+                JSONExtractorTool(),
+            ],
         )
-
-    @staticmethod
-    @network_retry
-    def upload_file(
-        local_path: str, remote_path: str, sftp_config: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        """
-        上传文件到SFTP（带3次重试）
-
-        Args:
-            local_path: 本地文件路径
-            remote_path: 远程目标路径
-            sftp_config: SFTP配置（host, port, username, password）
-
-        Returns:
-            上传结果
-        """
-        logger.info(f"📤 上传文件: {local_path} → {remote_path}")
-
-        try:
-            # 这里调用实际的SFTP工具
-            # 由于复用现有krystal工具，实际调用在task中完成
-            return {
-                "success": True,
-                "local_path": local_path,
-                "remote_path": remote_path,
-                "message": "文件上传成功",
-            }
-        except Exception as e:
-            logger.error(f"❌ 上传失败: {e}")
-            raise
-
-    @staticmethod
-    @network_retry
-    def trigger_service(
-        endpoint: str, payload: Dict, api_config: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        """
-        触发服务处理（带3次重试）
-
-        Args:
-            endpoint: API端点
-            payload: 请求体
-            api_config: API配置
-
-        Returns:
-            触发结果，包含task_id
-        """
-        logger.info(f"🚀 触发服务: {endpoint}")
-
-        try:
-            return {"success": True, "task_id": "task_xxx", "message": "服务触发成功"}
-        except Exception as e:
-            logger.error(f"❌ 触发失败: {e}")
-            raise
-
-    @staticmethod
-    @network_retry
-    def poll_status(
-        task_id: str, status_endpoint: str, polling_config: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        """
-        轮询等待处理完成（带3次重试）
-
-        Args:
-            task_id: 任务ID
-            status_endpoint: 状态查询端点
-            polling_config: 轮询配置
-
-        Returns:
-            轮询结果，包含最终状态
-        """
-        logger.info(f"⏳ 轮询任务状态: {task_id}")
-
-        try:
-            return {"success": True, "status": "completed", "message": "处理完成"}
-        except Exception as e:
-            logger.error(f"❌ 轮询失败: {e}")
-            raise
-
-    @staticmethod
-    @network_retry
-    def download_file(
-        remote_path: str, local_path: str, sftp_config: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        """
-        下载结果文件（带3次重试）
-
-        Args:
-            remote_path: 远程文件路径
-            local_path: 本地保存路径
-            sftp_config: SFTP配置
-
-        Returns:
-            下载结果
-        """
-        logger.info(f"📥 下载文件: {remote_path} → {local_path}")
-
-        try:
-            return {
-                "success": True,
-                "remote_path": remote_path,
-                "local_path": local_path,
-                "message": "文件下载成功",
-            }
-        except Exception as e:
-            logger.error(f"❌ 下载失败: {e}")
-            raise

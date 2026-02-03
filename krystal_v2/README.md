@@ -73,7 +73,7 @@ python -m krystal_v2.cli.main test \
   --expected-file expected.csv \
   --service payment-service \
   --env local \
-  --output-dir ./reports
+  --output-dir ./reports_v2
 ```
 
 ### 命令说明
