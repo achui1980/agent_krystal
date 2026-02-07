@@ -10,26 +10,88 @@ Essential commands and guidelines for the Krystal ETL testing framework.
 
 ### Installation
 ```bash
+# Install dependencies
 pip install -r requirements.txt
+
+# Install in development mode
+pip install -e .
 ```
 
 ### Running Tests
+
+#### Unit Tests
 ```bash
-# Run all tests
+# Run all unit tests
+python run_unit_tests.py
+
+# Run with verbose output
+python run_unit_tests.py -v
+
+# Run specific test by keyword
+python run_unit_tests.py -k test_api_client
+
+# Run with coverage
+python run_unit_tests.py --cov
+
+# Run with pytest directly
+python -m pytest tests/ -v -s
+python -m pytest tests/test_api_client.py -v -s
+
+# Run single test method
+python -m pytest tests/test_api_client.py::TestAPIClientTool::test_get_request -v -s
+```
+
+#### Integration Tests
+```bash
+# Run all integration tests
+python -m pytest integration_tests/ -v -s --timeout=300
+
+# Run specific integration test
+python -m pytest integration_tests/test_real_e2e.py::TestRealEndToEnd::test_crewai_agents_workflow_with_local_services -v -s
+
+# Prerequisites: Start local services first
+cd integration_tests && podman compose up -d
+```
+
+#### End-to-End Tests (v1.0)
+```bash
+# Run all enabled services in dev environment
 python run_tests.py --env dev
 
-# Run single test
+# Run single service test
 python run_tests.py --env dev --services payment-service
+
+# Run multiple specific services
+python run_tests.py --env dev --services payment-service,invoice-service
 
 # Validate configuration only
 python run_tests.py --env dev --validate-only
 
-# List services
+# List available services
 python run_tests.py --env dev --list
+
+# Generate report
+python run_tests.py --env dev --report
 ```
 
-### Krystal v2.0 Commands
+#### Test Case Generation (v2.0)
 ```bash
+# Generate test cases using autonomous agent
+python -m krystal_v2.case_generator.autonomous.autonomous_cli \
+  --rules case/rules.xlsx \
+  --source case/source.csv \
+  --expected case/expected.txt \
+  --max-iterations 5
+
+# Generate test cases with CLI
+python -m krystal_v2.case_generator.cli \
+  --rules case/rules.xlsx \
+  --sample-source case/source.csv \
+  --sample-expected case/expected.txt \
+  --count-normal 10 \
+  --count-abnormal 5 \
+  --count-boundary 3
+
 # Run E2E test (fast mode)
 python -m krystal_v2.cli.main test \
   --input-file test_data_v2/input.csv \
@@ -41,21 +103,21 @@ python -m krystal_v2.cli.main test \
 # Run with CrewAI mode
 python -m krystal_v2.cli.main test \
   -i input.csv -e expected.csv -s payment-service --mode crewai
-
-# View version
-python -m krystal_v2.cli.main version
 ```
 
 ### Lint & Type Check
 ```bash
 # Format code
-black krystal/
+black krystal/ krystal_v2/
+
+# Format specific files
+black krystal_v2/case_generator/
 
 # Type checking
-mypy krystal/
+mypy krystal/ krystal_v2/
 
 # Linting
-flake8 krystal/ --max-line-length=120 --ignore=E501,W503
+flake8 krystal/ krystal_v2/ --max-line-length=120 --ignore=E501,W503
 ```
 
 ## Code Style Guidelines
@@ -140,26 +202,22 @@ krystal_v2/
 - Support multiple environments: local, dev, staging, prod
 
 ## Environment Variables
-- `OPENAI_API_KEY` - Required for CrewAI
+- `OPENAI_API_KEY` - Required for CrewAI (mandatory)
+- `OPENAI_MODEL` - LLM model to use (default: gpt-4o)
 - `SFTP_HOST`, `SFTP_USERNAME`, `SFTP_PASSWORD` - For file operations
 - `API_TOKEN` - For API authentication
 
 ## Testing Guidelines
 - Test configurations in `config/dev/services.yaml`
-- Use httpbin.org for API testing examples
+- Use httpbin.org for API testing examples (see `tests/test_api_client.py`)
 - Mock SFTP operations in unit tests
 - Always validate YAML syntax before running
-
-### Running Integration Tests
-```bash
-# Run all integration tests
-python -m pytest integration_tests/ -v -s --timeout=300
-
-# Run specific test
-python -m pytest integration_tests/test_real_e2e.py::TestRealEndToEnd::test_crewai_agents_workflow_with_local_services -v -s
-```
+- Integration tests require local services (use podman/docker-compose)
+- Use `pytest -v -s` for verbose output with print statements
+- Use `--timeout=300` for long-running integration tests
 
 ## Documentation
 - Use docstrings for all public functions and classes
 - Follow Google-style docstrings
 - Include type information in docstrings when complex
+- Document CrewAI agents with clear descriptions and expected inputs

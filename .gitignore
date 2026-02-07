@@ -266,3 +266,12 @@ cython_debug/
 marimo/_static/
 marimo/_lp/
 __marimo__/
+
+# Krystal Project - Generated outputs
+generated/
+generated_agent/
+test_output/
+crewai_test_output.log
+
+# Krystal - Keep only final version
+!generated_autonomous/data_generator_final.py
