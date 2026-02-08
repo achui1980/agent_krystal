@@ -1,0 +1,11 @@
+ACTION_ID,SERVICE_MAP_ID,SOURCE_TOKEN,_test_id,_abnormal_type
+humana-s10-cs-data-integration,10003358,SRC-478054348944,normal_1,
+humana-s10-cs-data-integration,10003358,SRC-725025132534,normal_2,
+humana-s10-cs-data-integration,10003358,SRC-950450897235,normal_3,
+humana-s10-cs-data-integration,10003358,SRC-659632772625,normal_4,
+humana-s10-cs-data-integration,10003358,SRC-864897580430,normal_5,
+humana-s10-cs-data-integration,10003358,SRC-967367141319,abnormal_1,bad_premium
+humana-s10-cs-data-integration,10003358,SRC-373690137039,abnormal_2,bad_date
+humana-s10-cs-data-integration,10003358,SRC-027473885449,abnormal_3,bad_premium
+humana-s10-cs-data-integration,10003358,SRC-019064846410,abnormal_4,bad_premium
+humana-s10-cs-data-integration,10003358,SRC-419321597624,abnormal_5,bad_zip

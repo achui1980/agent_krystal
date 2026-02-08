@@ -1,0 +1,1725 @@
+{
+  "fields": {
+    "CARRIER_STATUS_MAP": {
+      "business_meaning": "承保方/保司侧状态的标准化映射值（用于将原始状态归一为统一口径）",
+      "data_type": "enum",
+      "common_patterns": [
+        "Active"
+      ],
+      "possible_source_fields": [
+        "carrier_status",
+        "CARRIER_STATUS",
+        "status",
+        "STATUS",
+        "carrierStatus",
+        "policy_status",
+        "POLICY_STATUS"
+      ],
+      "validation_rules": [
+        "可为空(样本存在为空可能的情况需确认)",
+        "若非空应为受控枚举(如Active/Termed等)",
+        "去除首尾空格"
+      ],
+      "derivation_hints": "从保司原始状态码/描述字段映射到统一状态口径（如将生效/有效映射为Active）"
+    },
+    "CARRIER_FAMILY_ID": {
+      "business_meaning": "承保方家族ID/集团ID集合（可能为多个关联ID的拼接）",
+      "data_type": "string(1-100)",
+      "common_patterns": [
+        "66,175,206"
+      ],
+      "possible_source_fields": [
+        "carrier_family_id",
+        "CARRIER_FAMILY_ID",
+        "carrierFamilyId",
+        "carrier_group_ids",
+        "CARRIER_GROUP_IDS"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空：允许数字与逗号分隔",
+        "建议正则: ^\\d+(,\\d+)*$"
+      ],
+      "derivation_hints": "可能由承保方层级关系表聚合得到：将同一集团下相关CARRIER_ID列表按逗号拼接"
+    },
+    "PARENT_CARRIER_ID": {
+      "business_meaning": "父级承保方ID（承保方层级中的上级ID）",
+      "data_type": "string(0-50)",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "parent_carrier_id",
+        "PARENT_CARRIER_ID",
+        "parentCarrierId",
+        "carrier_parent_id"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空应为ID型字符串/数字字符串"
+      ],
+      "derivation_hints": "从承保方维表/层级表关联获取（carrier -> parent carrier）"
+    },
+    "IS_PAID": {
+      "business_meaning": "是否已支付（付款状态标识）",
+      "data_type": "boolean",
+      "common_patterns": [
+        "1"
+      ],
+      "possible_source_fields": [
+        "is_paid",
+        "IS_PAID",
+        "paid_flag",
+        "PAID_FLAG",
+        "payment_status",
+        "PAYMENT_STATUS"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空取值应为0/1或Y/N（当前样本为1）"
+      ],
+      "derivation_hints": "根据缴费记录/对账结果计算：存在有效付款且覆盖应缴期间则置1，否则0"
+    },
+    "BUSINESS_LINE": {
+      "business_meaning": "业务线代码（如Medicare/Commercial等的内部编码）",
+      "data_type": "enum",
+      "common_patterns": [
+        "2"
+      ],
+      "possible_source_fields": [
+        "business_line",
+        "BUSINESS_LINE",
+        "line_of_business",
+        "LOB",
+        "lob",
+        "lineOfBusiness"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空应为受控代码集合（如1/2/3...）",
+        "建议为数字字符串或整数"
+      ],
+      "derivation_hints": "由产品/计划类型映射得到业务线编码（例如Medicare相关映射为2，需以字典为准）"
+    },
+    "APPLICATION_ID": {
+      "business_meaning": "申请单ID（内部申请记录主键）",
+      "data_type": "string(0-50)",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "application_id",
+        "APPLICATION_ID",
+        "app_id",
+        "APP_ID",
+        "applicationId"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空应唯一标识申请记录（同源系统内）"
+      ],
+      "derivation_hints": "来自投保申请系统的主键；若存在保司申请号则可能与CARRIER_APPLICATION_ID区分"
+    },
+    "MEMBER_NUMBER": {
+      "business_meaning": "成员序号/家庭成员编号（同一保单/家庭下的成员序号）",
+      "data_type": "number",
+      "common_patterns": [
+        "1"
+      ],
+      "possible_source_fields": [
+        "member_number",
+        "MEMBER_NUMBER",
+        "member_seq",
+        "MEMBER_SEQ",
+        "dependent_number",
+        "DEPENDENT_NO"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空应为正整数",
+        "同一POLICY/家庭内不重复"
+      ],
+      "derivation_hints": "按家庭/保单下人员排序生成（主被保人通常为1）"
+    },
+    "POLICY_ID": {
+      "business_meaning": "保单ID（内部保单主键）",
+      "data_type": "string(0-50)",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "policy_id",
+        "POLICY_ID",
+        "policyId",
+        "enrollment_policy_id",
+        "ENROLLMENT_POLICY_ID"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空应为ID型字符串"
+      ],
+      "derivation_hints": "来自保单/参保记录表主键"
+    },
+    "CARRIER_ID": {
+      "business_meaning": "承保方ID（保司/承保机构内部标识）",
+      "data_type": "string(0-50)",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "carrier_id",
+        "CARRIER_ID",
+        "carrierId",
+        "insurer_id",
+        "INSURER_ID"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空应能关联到承保方维表"
+      ],
+      "derivation_hints": "从计划/合同关联或保单记录中取承保方标识"
+    },
+    "PLAN_ID": {
+      "business_meaning": "计划ID（内部计划主键）",
+      "data_type": "string(0-50)",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "plan_id",
+        "PLAN_ID",
+        "planId",
+        "product_plan_id",
+        "PRODUCT_PLAN_ID"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空应能关联到计划维表"
+      ],
+      "derivation_hints": "来源于产品计划表主键；也可能由CMS_CONTRACT_ID+CMS_PLAN_ID+CMS_SEGMENT_ID映射得到"
+    },
+    "RIDER_ID": {
+      "business_meaning": "附加险/附加条款ID（Rider标识）",
+      "data_type": "string(0-50)",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "rider_id",
+        "RIDER_ID",
+        "riderId",
+        "add_on_id",
+        "ADD_ON_ID"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空应能关联到附加险/条款维表"
+      ],
+      "derivation_hints": "来自附加险选择记录；无附加险则为空"
+    },
+    "CATEGORY_CLASS_ID": {
+      "business_meaning": "类别/等级分类ID（可能是成员类别、费率类别或产品分类）",
+      "data_type": "enum",
+      "common_patterns": [
+        "1"
+      ],
+      "possible_source_fields": [
+        "category_class_id",
+        "CATEGORY_CLASS_ID",
+        "categoryClassId",
+        "class_id",
+        "CLASS_ID"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空应为受控代码/ID",
+        "建议为数字字符串"
+      ],
+      "derivation_hints": "由成员身份/产品类别/费率分组规则映射得到（需字典确认）"
+    },
+    "REQUESTED_EFFECTIVE_DATE": {
+      "business_meaning": "申请期望生效日期（投保时请求的生效日）",
+      "data_type": "date(MM/DD/YYYY)",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "requested_effective_date",
+        "REQUESTED_EFFECTIVE_DATE",
+        "requestedEffectiveDate",
+        "req_eff_date",
+        "REQ_EFF_DT"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空必须符合MM/DD/YYYY",
+        "不得晚于CANCELLATION_DATE(如有)"
+      ],
+      "derivation_hints": "来自申请表单填写的期望生效日期；可能与EFFECTIVE_START_DATE不同（后者为实际生效）"
+    },
+    "STATUS_CODE": {
+      "business_meaning": "状态代码（原始状态码/内部处理状态码）",
+      "data_type": "string(0-50)",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "status_code",
+        "STATUS_CODE",
+        "statusCode",
+        "code",
+        "STATUSCD"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空应在状态码字典范围内"
+      ],
+      "derivation_hints": "从源系统状态字段直接取值；可与CARRIER_STATUS_MAP映射关系对应"
+    },
+    "PRODUCT_LINE": {
+      "business_meaning": "产品线/产品类型（如MD、MA/MAPD等）",
+      "data_type": "enum",
+      "common_patterns": [
+        "MD",
+        "MA/MAPD"
+      ],
+      "possible_source_fields": [
+        "product_line",
+        "PRODUCT_LINE",
+        "productLine",
+        "product_type",
+        "PRODUCT_TYPE",
+        "line_of_product",
+        "LOP"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空应为受控枚举",
+        "建议去除首尾空格"
+      ],
+      "derivation_hints": "根据计划/合同类型或CMS合同信息映射到产品线（例如MA/MAPD等）"
+    },
+    "REVENUE_IMPACT_DATE": {
+      "business_meaning": "收入影响日期（影响佣金/收入确认的关键日期）",
+      "data_type": "date(MM/DD/YYYY)",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "revenue_impact_date",
+        "REVENUE_IMPACT_DATE",
+        "revenueImpactDate",
+        "commission_effective_date",
+        "COMMISSION_EFFECTIVE_DATE"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空必须符合MM/DD/YYYY"
+      ],
+      "derivation_hints": "可能取EFFECTIVE_START_DATE、首次缴费日期或保司确认日期中的某个按业务规则确定"
+    },
+    "POLICY_NUMBER": {
+      "business_meaning": "保单号（对外/保司保单编号）",
+      "data_type": "string(0-50)",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "policy_number",
+        "POLICY_NUMBER",
+        "policyNo",
+        "POLICY_NO",
+        "member_policy_number"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空应为字母数字及常见分隔符",
+        "建议唯一性：同一CARRIER_ID下不重复"
+      ],
+      "derivation_hints": "来自保司回传或保单系统；可能与CARRIER_POLICY_ID相关"
+    },
+    "MONTHLY_PREMIUM": {
+      "business_meaning": "月保费金额",
+      "data_type": "number",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "monthly_premium",
+        "MONTHLY_PREMIUM",
+        "premium",
+        "PREMIUM",
+        "premium_amount",
+        "PREMIUM_AMT"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空应为>=0的数值",
+        "建议保留2位小数"
+      ],
+      "derivation_hints": "来自费率/账单；若频率非月缴，可能由周期保费换算为月保费"
+    },
+    "RATE_TIER": {
+      "business_meaning": "费率档位/费率层级（如Individual/Family或年龄档等）",
+      "data_type": "string(0-50)",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "rate_tier",
+        "RATE_TIER",
+        "rateTier",
+        "pricing_tier",
+        "PRICING_TIER"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空应在费率档位字典内"
+      ],
+      "derivation_hints": "由投保类型、家庭结构或产品费率规则决定"
+    },
+    "NOT_CANCELLED": {
+      "business_meaning": "未取消标识（与取消状态相反的布尔/标识字段）",
+      "data_type": "boolean",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "not_cancelled",
+        "NOT_CANCELLED",
+        "is_cancelled",
+        "IS_CANCELLED",
+        "cancel_flag",
+        "CANCEL_FLAG"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空取值应为0/1或Y/N",
+        "与CANCELLATION_DATE/状态字段一致性校验"
+      ],
+      "derivation_hints": "可由CANCELLATION_DATE是否为远期哨兵值(如12/31/9999)或状态不为Cancelled/Termed推导"
+    },
+    "IS_DELINQUENT": {
+      "business_meaning": "是否欠费/逾期标识",
+      "data_type": "boolean",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "is_delinquent",
+        "IS_DELINQUENT",
+        "delinquent_flag",
+        "DELINQUENT_FLAG",
+        "arrears_flag",
+        "ARREARS_FLAG"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空取值应为0/1或Y/N"
+      ],
+      "derivation_hints": "根据应缴与实缴对比、paid_thru_date早于当前计费周期等规则判断"
+    },
+    "DELINQUENCY_NOTE": {
+      "business_meaning": "欠费说明/备注",
+      "data_type": "string(0-255)",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "delinquency_note",
+        "DELINQUENCY_NOTE",
+        "delinquencyNote",
+        "arrears_note",
+        "ARREARS_NOTE",
+        "notes",
+        "NOTE"
+      ],
+      "validation_rules": [
+        "可为空",
+        "长度不超过255"
+      ],
+      "derivation_hints": "源系统欠费原因或人工备注拼接/透传"
+    },
+    "MEMBER_COUNT": {
+      "business_meaning": "成员数（保单/家庭下的参保人数）",
+      "data_type": "number",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "member_count",
+        "MEMBER_COUNT",
+        "members",
+        "MEMBERS",
+        "covered_lives",
+        "COVERED_LIVES"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空应为>=1的整数"
+      ],
+      "derivation_hints": "按POLICY_ID或家庭维度统计有效成员记录数"
+    },
+    "CARRIER_EFFECTIVE_DATE": {
+      "business_meaning": "保司侧生效日期（承保方确认的生效日）",
+      "data_type": "date(MM/DD/YYYY)",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "carrier_effective_date",
+        "CARRIER_EFFECTIVE_DATE",
+        "carrierEffectiveDate",
+        "insurer_effective_date",
+        "INSURER_EFFECTIVE_DATE"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空必须符合MM/DD/YYYY"
+      ],
+      "derivation_hints": "来自保司回传/对接接口；可能晚于REQUESTED_EFFECTIVE_DATE"
+    },
+    "EFFECTIVE_START_DATE": {
+      "business_meaning": "实际生效开始日期（保障起始日）",
+      "data_type": "date(MM/DD/YYYY)",
+      "common_patterns": [
+        "01/01/2025",
+        "02/01/2026"
+      ],
+      "possible_source_fields": [
+        "effective_start_date",
+        "EFFECTIVE_START_DATE",
+        "effectiveDate",
+        "EFFECTIVE_DATE",
+        "coverage_start_date",
+        "COVERAGE_START_DATE"
+      ],
+      "validation_rules": [
+        "可为空(但通常应非空)",
+        "若非空必须符合MM/DD/YYYY",
+        "应<=CANCELLATION_DATE"
+      ],
+      "derivation_hints": "从保司确认生效日或内部生效字段取值；若为空可尝试用REQUESTED_EFFECTIVE_DATE补齐（需规则）"
+    },
+    "CANCELLATION_DATE": {
+      "business_meaning": "取消/终止日期（保障结束日）；12/31/9999可能表示未终止/有效到远期",
+      "data_type": "date(MM/DD/YYYY)",
+      "common_patterns": [
+        "12/31/9999"
+      ],
+      "possible_source_fields": [
+        "cancellation_date",
+        "CANCELLATION_DATE",
+        "termination_date",
+        "TERMINATION_DATE",
+        "end_date",
+        "END_DATE",
+        "coverage_end_date"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空必须符合MM/DD/YYYY",
+        "应>=EFFECTIVE_START_DATE",
+        "允许哨兵值12/31/9999表示未取消"
+      ],
+      "derivation_hints": "来自终止/退保记录；无退保则写入哨兵远期日期"
+    },
+    "IS_ACTIVE": {
+      "business_meaning": "是否有效/在保标识",
+      "data_type": "boolean",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "is_active",
+        "IS_ACTIVE",
+        "active_flag",
+        "ACTIVE_FLAG",
+        "status_active",
+        "STATUS_ACTIVE"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空取值应为0/1或Y/N",
+        "与CARRIER_STATUS_MAP、日期区间一致"
+      ],
+      "derivation_hints": "可由(CARRIER_STATUS_MAP=Active 且 当前日期在[EFFECTIVE_START_DATE, CANCELLATION_DATE])推导"
+    },
+    "IS_REVERSED": {
+      "business_meaning": "是否冲销/反转标识（记录被撤销或被反向更正）",
+      "data_type": "boolean",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "is_reversed",
+        "IS_REVERSED",
+        "reversed_flag",
+        "REVERSED_FLAG",
+        "void_flag",
+        "VOID_FLAG"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空取值应为0/1或Y/N"
+      ],
+      "derivation_hints": "当同一业务发生撤销/更正时标记；可能由对账/更正交易生成"
+    },
+    "IS_MASTER_POLICY": {
+      "business_meaning": "是否主保单标识（团单主保单/主合同）",
+      "data_type": "boolean",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "is_master_policy",
+        "IS_MASTER_POLICY",
+        "master_policy_flag",
+        "MASTER_POLICY_FLAG",
+        "isMasterPolicy"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空取值应为0/1或Y/N"
+      ],
+      "derivation_hints": "若存在团险/主从保单结构，根据保单层级或group policy标识推导"
+    },
+    "HEALTH_RATE_FACTOR": {
+      "business_meaning": "健康费率因子/调整系数（用于保费计算的因子）",
+      "data_type": "number",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "health_rate_factor",
+        "HEALTH_RATE_FACTOR",
+        "rate_factor",
+        "RATE_FACTOR",
+        "healthFactor"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空应为>0的数值",
+        "建议小数精度<=6位"
+      ],
+      "derivation_hints": "来自费率引擎/核保结果；用于MONTHLY_PREMIUM或费率计算"
+    },
+    "HOUSEHOLE_DISCOUNT": {
+      "business_meaning": "家庭折扣金额或折扣比例（同住/家庭优惠）",
+      "data_type": "number",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "household_discount",
+        "HOUSEHOLE_DISCOUNT",
+        "discount",
+        "DISCOUNT",
+        "hh_discount",
+        "HH_DISCOUNT"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空应为>=0的数值",
+        "需明确是金额还是比例（unknown）"
+      ],
+      "derivation_hints": "由家庭关联/同地址等规则触发，来自费率引擎或产品规则计算"
+    },
+    "PREMIUM_EFFECTIVE_DATE": {
+      "business_meaning": "保费生效日期（某一保费金额开始适用的日期）",
+      "data_type": "date(MM/DD/YYYY)",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "premium_effective_date",
+        "PREMIUM_EFFECTIVE_DATE",
+        "premiumEffectiveDate",
+        "rate_effective_date",
+        "RATE_EFFECTIVE_DATE"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空必须符合MM/DD/YYYY"
+      ],
+      "derivation_hints": "当发生调价/批改时，用于标记新保费的生效日期"
+    },
+    "FUTURE_RATE_CHANGE_DATE": {
+      "business_meaning": "未来费率变更日期（预告的费率调整生效日）",
+      "data_type": "date(MM/DD/YYYY)",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "future_rate_change_date",
+        "FUTURE_RATE_CHANGE_DATE",
+        "futureRateChangeDate",
+        "next_rate_change_date",
+        "NEXT_RATE_CHANGE_DATE"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空必须符合MM/DD/YYYY",
+        "若非空通常应>=当前日期"
+      ],
+      "derivation_hints": "来自费率通知/续保或年度调价计划"
+    },
+    "FUTURE_PREMIUM": {
+      "business_meaning": "未来保费（在未来调价后将适用的保费）",
+      "data_type": "number",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "future_premium",
+        "FUTURE_PREMIUM",
+        "next_premium",
+        "NEXT_PREMIUM",
+        "futurePremium"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空应为>=0数值",
+        "通常与FUTURE_RATE_CHANGE_DATE成对出现"
+      ],
+      "derivation_hints": "当存在未来调价时，从费率表/续保报价获取"
+    },
+    "FREQUENCY_TO_DEBIT": {
+      "business_meaning": "扣款频率（如月/季/年扣等）",
+      "data_type": "enum",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "frequency_to_debit",
+        "FREQUENCY_TO_DEBIT",
+        "debit_frequency",
+        "DEBIT_FREQUENCY",
+        "payment_frequency",
+        "PAYMENT_FREQUENCY"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空应为受控枚举（Monthly/Quarterly等或代码）"
+      ],
+      "derivation_hints": "来自支付设置/保费缴费频率配置"
+    },
+    "CARRIER_PAID_THRU_DATE": {
+      "business_meaning": "保司已缴费覆盖至日期（Paid-through date）",
+      "data_type": "date(MM/DD/YYYY)",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "carrier_paid_thru_date",
+        "CARRIER_PAID_THRU_DATE",
+        "paid_thru_date",
+        "PAID_THRU_DATE",
+        "paidThroughDate"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空必须符合MM/DD/YYYY",
+        "通常应>=EFFECTIVE_START_DATE"
+      ],
+      "derivation_hints": "从保司账单/对账接口获取；用于判断欠费(IS_DELINQUENT)"
+    },
+    "ADDRESS_TYPE": {
+      "business_meaning": "地址类型（如邮寄地址/居住地址等）",
+      "data_type": "enum",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "address_type",
+        "ADDRESS_TYPE",
+        "addressType",
+        "addr_type",
+        "ADDR_TYPE"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空应为受控枚举"
+      ],
+      "derivation_hints": "来自会员地址记录的类型字段（Mailing/Residential等）"
+    },
+    "ADDRESS_LINE_1": {
+      "business_meaning": "地址第一行（街道地址）",
+      "data_type": "string(0-100)",
+      "common_patterns": [
+        "76 TEST VALLEY DR",
+        "24 TEST TREE PL"
+      ],
+      "possible_source_fields": [
+        "address_line_1",
+        "ADDRESS_LINE_1",
+        "address1",
+        "ADDRESS1",
+        "street1",
+        "STREET_1"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空长度<=100"
+      ],
+      "derivation_hints": "源系统地址字段透传/标准化（大写、缩写等可能已处理）"
+    },
+    "ADDRESS_LINE_2": {
+      "business_meaning": "地址第二行（楼层/单元/公寓号等）",
+      "data_type": "string(0-100)",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "address_line_2",
+        "ADDRESS_LINE_2",
+        "address2",
+        "ADDRESS2",
+        "street2",
+        "STREET_2"
+      ],
+      "validation_rules": [
+        "可为空",
+        "长度<=100"
+      ],
+      "derivation_hints": "源系统地址补充信息透传"
+    },
+    "ADDRESS_LINE_3": {
+      "business_meaning": "地址第三行（额外地址补充）",
+      "data_type": "string(0-100)",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "address_line_3",
+        "ADDRESS_LINE_3",
+        "address3",
+        "ADDRESS3"
+      ],
+      "validation_rules": [
+        "可为空",
+        "长度<=100"
+      ],
+      "derivation_hints": "源系统地址补充信息透传"
+    },
+    "CITY": {
+      "business_meaning": "城市",
+      "data_type": "string(0-50)",
+      "common_patterns": [
+        "SAINT LOUIS",
+        "PALM COAST"
+      ],
+      "possible_source_fields": [
+        "city",
+        "CITY",
+        "City",
+        "mail_city",
+        "MAILING_CITY"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空长度<=50"
+      ],
+      "derivation_hints": "来自地址信息；可能已大写标准化"
+    },
+    "STATE": {
+      "business_meaning": "州代码（美国州两位缩写）",
+      "data_type": "enum",
+      "common_patterns": [
+        "MO",
+        "FL"
+      ],
+      "possible_source_fields": [
+        "state",
+        "STATE",
+        "State",
+        "state_code",
+        "STATE_CODE",
+        "province"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空必须为2位大写字母",
+        "应在US州代码集合内"
+      ],
+      "derivation_hints": "地址字段透传/标准化为两位州缩写"
+    },
+    "ZIP_CODE": {
+      "business_meaning": "邮编（美国ZIP）",
+      "data_type": "string(0-10)",
+      "common_patterns": [
+        "63146",
+        "32137"
+      ],
+      "possible_source_fields": [
+        "zip_code",
+        "ZIP_CODE",
+        "zip",
+        "ZIP",
+        "postal_code",
+        "POSTAL_CODE"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空：5位或ZIP+4（正则 ^\\d{5}(-\\d{4})?$）"
+      ],
+      "derivation_hints": "来自地址；可能去掉非数字字符或保留ZIP+4格式"
+    },
+    "COUNTY": {
+      "business_meaning": "县/郡（County）",
+      "data_type": "string(0-50)",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "county",
+        "COUNTY",
+        "County",
+        "county_name",
+        "COUNTY_NAME"
+      ],
+      "validation_rules": [
+        "可为空",
+        "长度<=50"
+      ],
+      "derivation_hints": "来自地址或由ZIP/City/State反查补全（若源未提供）"
+    },
+    "FIRST_NAME": {
+      "business_meaning": "会员名（First Name）",
+      "data_type": "string(0-50)",
+      "common_patterns": [
+        "MICKEY",
+        "MINNEY A"
+      ],
+      "possible_source_fields": [
+        "first_name",
+        "FIRST_NAME",
+        "firstName",
+        "member_first_name",
+        "MEMBER_FIRST_NAME",
+        "given_name",
+        "GIVEN_NAME"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空长度<=50"
+      ],
+      "derivation_hints": "来自会员个人信息；可能已大写；若源只有全名可按分隔规则拆分"
+    },
+    "MIDDLE_NAME": {
+      "business_meaning": "会员中间名（Middle Name）",
+      "data_type": "string(0-50)",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "middle_name",
+        "MIDDLE_NAME",
+        "middleName",
+        "member_middle_name",
+        "suffix_middle"
+      ],
+      "validation_rules": [
+        "可为空",
+        "长度<=50"
+      ],
+      "derivation_hints": "来自个人信息；若源无中间名则为空"
+    },
+    "LAST_NAME": {
+      "business_meaning": "会员姓（Last Name）",
+      "data_type": "string(0-50)",
+      "common_patterns": [
+        "MOUSE"
+      ],
+      "possible_source_fields": [
+        "last_name",
+        "LAST_NAME",
+        "lastName",
+        "member_last_name",
+        "FAMILY_NAME",
+        "family_name"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空长度<=50"
+      ],
+      "derivation_hints": "来自个人信息；可能已大写"
+    },
+    "GENDER": {
+      "business_meaning": "性别",
+      "data_type": "enum",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "gender",
+        "GENDER",
+        "sex",
+        "SEX",
+        "member_gender",
+        "MEMBER_GENDER"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空应为受控枚举（M/F/U等，具体unknown）"
+      ],
+      "derivation_hints": "源系统性别代码透传或映射标准化"
+    },
+    "BIRTH_DATE": {
+      "business_meaning": "出生日期",
+      "data_type": "date(MM/DD/YYYY)",
+      "common_patterns": [
+        "07/28/1949",
+        "02/05/1961"
+      ],
+      "possible_source_fields": [
+        "birth_date",
+        "BIRTH_DATE",
+        "dob",
+        "DOB",
+        "date_of_birth",
+        "DATE_OF_BIRTH"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空必须符合MM/DD/YYYY",
+        "应早于当前日期"
+      ],
+      "derivation_hints": "来自个人信息；可能与年龄、费率计算相关"
+    },
+    "SSN": {
+      "business_meaning": "社会安全号码（SSN，美国个人税号）",
+      "data_type": "string(0-11)",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "ssn",
+        "SSN",
+        "social_security_number",
+        "SOCIAL_SECURITY_NUMBER",
+        "tax_id",
+        "TIN"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空：建议正则 ^\\d{3}-?\\d{2}-?\\d{4}$",
+        "敏感字段需脱敏/加密存储（规则取决于平台）"
+      ],
+      "derivation_hints": "来自个人身份信息；下游可能以加密/掩码形式存储"
+    },
+    "EMAIL": {
+      "business_meaning": "电子邮箱",
+      "data_type": "string(0-254)",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "email",
+        "EMAIL",
+        "email_address",
+        "EMAIL_ADDRESS",
+        "member_email",
+        "MEMBER_EMAIL"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空应符合邮箱格式",
+        "统一小写（可选）"
+      ],
+      "derivation_hints": "来自会员联系方式；可做格式清洗与去空格"
+    },
+    "MEDICARE_ID": {
+      "business_meaning": "Medicare受益人ID（MBI，Medicare Beneficiary Identifier）",
+      "data_type": "string(0-20)",
+      "common_patterns": [
+        "1AB2CD3EF45",
+        "9A87B65CD67"
+      ],
+      "possible_source_fields": [
+        "medicare_id",
+        "MEDICARE_ID",
+        "mbi",
+        "MBI",
+        "medicareBeneficiaryId",
+        "HICN"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空应为字母数字组合",
+        "长度通常为11（样本为11）"
+      ],
+      "derivation_hints": "来自投保/会员信息；可能从旧HICN迁移映射为MBI（若存在）"
+    },
+    "CARRIER_CONFIRMATION_NUMBER": {
+      "business_meaning": "保司确认号/回执号（投保提交后保司返回的确认编号）",
+      "data_type": "string(0-50)",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "carrier_confirmation_number",
+        "CARRIER_CONFIRMATION_NUMBER",
+        "confirmation_number",
+        "CONFIRMATION_NO",
+        "carrierConfirmationNumber"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空长度<=50"
+      ],
+      "derivation_hints": "来自保司接口回执；用于对账与追踪"
+    },
+    "PHONE_TYPE": {
+      "business_meaning": "电话类型（手机/家庭/工作等）",
+      "data_type": "enum",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "phone_type",
+        "PHONE_TYPE",
+        "phoneType",
+        "contact_phone_type",
+        "CONTACT_PHONE_TYPE"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空应为受控枚举"
+      ],
+      "derivation_hints": "来自联系方式记录的类型字段"
+    },
+    "AREA_CODE": {
+      "business_meaning": "电话区号（美国3位区号）",
+      "data_type": "string(0-3)",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "area_code",
+        "AREA_CODE",
+        "areaCode",
+        "phone_area_code",
+        "PHONE_AREA_CODE"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空应为3位数字"
+      ],
+      "derivation_hints": "从PHONE_NUMBER拆分或源系统独立字段"
+    },
+    "PHONE_NUMBER": {
+      "business_meaning": "电话号码（不含区号或含完整号码，具体unknown）",
+      "data_type": "string(0-15)",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "phone_number",
+        "PHONE_NUMBER",
+        "phone",
+        "PHONE",
+        "mobile",
+        "MOBILE_PHONE",
+        "contact_number"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空建议仅数字或标准格式（正则可选）"
+      ],
+      "derivation_hints": "可能从完整电话拆分为AREA_CODE+PHONE_NUMBER+PHONE_EXTENSION"
+    },
+    "PHONE_EXTENSION": {
+      "business_meaning": "电话分机号",
+      "data_type": "string(0-10)",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "phone_extension",
+        "PHONE_EXTENSION",
+        "extension",
+        "EXT",
+        "extNumber"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空应为数字或短字符串",
+        "长度<=10"
+      ],
+      "derivation_hints": "从电话字段解析或源系统分机字段透传"
+    },
+    "STATUS_NOTE": {
+      "business_meaning": "状态备注（对当前状态的补充说明）",
+      "data_type": "string(0-255)",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "status_note",
+        "STATUS_NOTE",
+        "statusNote",
+        "note",
+        "NOTE",
+        "status_comment",
+        "STATUS_COMMENT"
+      ],
+      "validation_rules": [
+        "可为空",
+        "长度<=255"
+      ],
+      "derivation_hints": "源系统备注透传或拼接业务处理说明"
+    },
+    "CATEGORY": {
+      "business_meaning": "类别（业务分类字段，具体分类口径unknown）",
+      "data_type": "string(0-50)",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "category",
+        "CATEGORY",
+        "Category",
+        "segment",
+        "SEGMENT",
+        "member_category"
+      ],
+      "validation_rules": [
+        "可为空",
+        "长度<=50"
+      ],
+      "derivation_hints": "可能由产品/成员属性映射得到；需字典确认"
+    },
+    "SUBSCRIBER_COUNT": {
+      "business_meaning": "订阅者/主被保人数（可能统计subscriber数量）",
+      "data_type": "number",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "subscriber_count",
+        "SUBSCRIBER_COUNT",
+        "subscriberCnt",
+        "subscribers",
+        "SUBSCRIBERS"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空应为>=0整数",
+        "通常<=MEMBER_COUNT"
+      ],
+      "derivation_hints": "按家庭/保单统计主被保人数量（一般为1）"
+    },
+    "GROUP_NAME": {
+      "business_meaning": "团体名称/雇主组名称（Group Name）",
+      "data_type": "string(0-100)",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "group_name",
+        "GROUP_NAME",
+        "groupName",
+        "employer_name",
+        "EMPLOYER_NAME"
+      ],
+      "validation_rules": [
+        "可为空",
+        "长度<=100"
+      ],
+      "derivation_hints": "团险/雇主计划来源；个人计划通常为空"
+    },
+    "GROUP_ID": {
+      "business_meaning": "团体ID/雇主组ID（Group标识）",
+      "data_type": "string(0-50)",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "group_id",
+        "GROUP_ID",
+        "groupId",
+        "employer_group_id",
+        "EMPLOYER_GROUP_ID"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空应能关联Group维表"
+      ],
+      "derivation_hints": "来自团体/雇主组主键"
+    },
+    "RAF": {
+      "business_meaning": "风险调整因子（Risk Adjustment Factor，RAF）",
+      "data_type": "number",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "raf",
+        "RAF",
+        "risk_adjustment_factor",
+        "RISK_ADJUSTMENT_FACTOR",
+        "riskScore"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空应为>=0数值"
+      ],
+      "derivation_hints": "来自CMS/风险评分或内部风险模型结果"
+    },
+    "CARRIER_APPLICATION_ID": {
+      "business_meaning": "保司申请单ID（保司侧申请/投保编号）",
+      "data_type": "string(0-50)",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "carrier_application_id",
+        "CARRIER_APPLICATION_ID",
+        "insurer_application_id",
+        "carrierAppId",
+        "application_number"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空长度<=50"
+      ],
+      "derivation_hints": "来自保司回传或提交后生成的保司申请号"
+    },
+    "CARRIER_POLICY_ID": {
+      "business_meaning": "保司保单ID（保司侧保单主键/内部标识）",
+      "data_type": "string(0-50)",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "carrier_policy_id",
+        "CARRIER_POLICY_ID",
+        "insurer_policy_id",
+        "carrierPolicyId",
+        "policy_identifier"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空长度<=50"
+      ],
+      "derivation_hints": "来自保司系统；可能与POLICY_NUMBER不同（一个是内部ID，一个是对外编号）"
+    },
+    "RECORD_TYPE": {
+      "business_meaning": "记录类型（区分记录来源/业务事件类型，unknown）",
+      "data_type": "enum",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "record_type",
+        "RECORD_TYPE",
+        "recordType",
+        "transaction_type",
+        "TRANSACTION_TYPE",
+        "event_type",
+        "EVENT_TYPE"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空应为受控枚举"
+      ],
+      "derivation_hints": "可能用于区分Enroll/Change/Disenroll等事件类型（需源字典）"
+    },
+    "CREATION_DATE": {
+      "business_meaning": "记录创建日期（系统生成该记录的时间）",
+      "data_type": "date(MM/DD/YYYY)",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "creation_date",
+        "CREATION_DATE",
+        "created_date",
+        "CREATED_DATE",
+        "createDate",
+        "created_at"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空必须符合MM/DD/YYYY（或源为datetime需截取日期）"
+      ],
+      "derivation_hints": "从源系统created timestamp转换/格式化得到"
+    },
+    "SUBMIT_DATE": {
+      "business_meaning": "提交日期（申请/记录提交到保司或平台的日期）",
+      "data_type": "date(MM/DD/YYYY)",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "submit_date",
+        "SUBMIT_DATE",
+        "submitted_date",
+        "SUBMITTED_DATE",
+        "submitDate"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空必须符合MM/DD/YYYY"
+      ],
+      "derivation_hints": "从提交动作时间戳取日期部分"
+    },
+    "SIGNITURE_DATE": {
+      "business_meaning": "签名日期（投保人签署日期；字段名拼写为SIGNITURE）",
+      "data_type": "date(MM/DD/YYYY)",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "signature_date",
+        "SIGNATURE_DATE",
+        "SIGNITURE_DATE",
+        "signed_date",
+        "SIGNED_DATE",
+        "signatureDate"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空必须符合MM/DD/YYYY"
+      ],
+      "derivation_hints": "来自电子签名/纸质签署日期；注意字段名可能为拼写错误导致的映射"
+    },
+    "SEP_REASON_CODE": {
+      "business_meaning": "特殊投保期原因代码（SEP Reason Code）",
+      "data_type": "string(0-50)",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "sep_reason_code",
+        "SEP_REASON_CODE",
+        "sepReasonCode",
+        "special_enrollment_reason",
+        "SPECIAL_ENROLLMENT_REASON"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空应在SEP原因码字典内"
+      ],
+      "derivation_hints": "来源于Medicare/ACA等SEP选择；按CMS/业务字典存储"
+    },
+    "EXTRA_HELP": {
+      "business_meaning": "是否有Extra Help/LIS资格标识（低收入补助）",
+      "data_type": "boolean",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "extra_help",
+        "EXTRA_HELP",
+        "lis_flag",
+        "LIS_FLAG",
+        "low_income_subsidy",
+        "LOW_INCOME_SUBSIDY"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空取值应为0/1或Y/N"
+      ],
+      "derivation_hints": "来自申请人自报或CMS资格校验结果"
+    },
+    "EXTRA_HELP_LEVEL": {
+      "business_meaning": "Extra Help等级/级别（LIS级别代码，unknown）",
+      "data_type": "string(0-50)",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "extra_help_level",
+        "EXTRA_HELP_LEVEL",
+        "lis_level",
+        "LIS_LEVEL",
+        "subsidy_level",
+        "SUBSIDY_LEVEL"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空应在等级字典内"
+      ],
+      "derivation_hints": "由EXTRA_HELP资格结果映射得到等级（如partial/full等，需字典）"
+    },
+    "CARRIER_NAME": {
+      "business_meaning": "承保方名称（保司名称）",
+      "data_type": "string(0-100)",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "carrier_name",
+        "CARRIER_NAME",
+        "carrierName",
+        "insurer_name",
+        "INSURER_NAME"
+      ],
+      "validation_rules": [
+        "可为空",
+        "长度<=100"
+      ],
+      "derivation_hints": "由CARRIER_ID关联承保方维表获取"
+    },
+    "PLAN_NAME": {
+      "business_meaning": "计划名称",
+      "data_type": "string(0-150)",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "plan_name",
+        "PLAN_NAME",
+        "planName",
+        "product_name",
+        "PRODUCT_NAME"
+      ],
+      "validation_rules": [
+        "可为空",
+        "长度<=150"
+      ],
+      "derivation_hints": "由PLAN_ID或CMS合同+计划ID关联计划维表获取"
+    },
+    "CMS_CONTRACT_ID": {
+      "business_meaning": "CMS合同号（Medicare合同ID，如Hxxxx/Sxxxx）",
+      "data_type": "string(0-10)",
+      "common_patterns": [
+        "S5884",
+        "H7617"
+      ],
+      "possible_source_fields": [
+        "cms_contract_id",
+        "CMS_CONTRACT_ID",
+        "contract_id",
+        "CONTRACT_ID",
+        "cmsContractId"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空：通常为1字母+4数字（正则 ^[HRS]\\d{4}$，但可能有其他前缀）"
+      ],
+      "derivation_hints": "来自CMS计划标识；与CMS_PLAN_ID、CMS_SEGMENT_ID组合定位具体计划"
+    },
+    "CMS_PLAN_ID": {
+      "business_meaning": "CMS计划ID（合同下的计划编号）",
+      "data_type": "string(0-5)",
+      "common_patterns": [
+        "197",
+        "111"
+      ],
+      "possible_source_fields": [
+        "cms_plan_id",
+        "CMS_PLAN_ID",
+        "plan_id",
+        "PLAN_ID",
+        "cmsPlanId"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空应为数字字符串",
+        "通常与CMS_CONTRACT_ID成对出现"
+      ],
+      "derivation_hints": "来自CMS计划代码；可能需要左补零到3位（样本未补零，规则unknown）"
+    },
+    "CMS_SEGMENT_ID": {
+      "business_meaning": "CMS分段ID/Segment ID（同一计划下的细分段）",
+      "data_type": "string(0-5)",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "cms_segment_id",
+        "CMS_SEGMENT_ID",
+        "segment_id",
+        "SEGMENT_ID",
+        "cmsSegmentId"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空通常为数字字符串"
+      ],
+      "derivation_hints": "来自CMS细分；为空可能表示默认段或源未提供"
+    },
+    "RENEWAL_DATE": {
+      "business_meaning": "续保日期（续保生效或续保处理日期，unknown）",
+      "data_type": "date(MM/DD/YYYY)",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "renewal_date",
+        "RENEWAL_DATE",
+        "renewDate",
+        "policy_renewal_date",
+        "POLICY_RENEWAL_DATE"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空必须符合MM/DD/YYYY"
+      ],
+      "derivation_hints": "来自续保记录；可能为下年度生效日或续保生成日期（需口径确认）"
+    },
+    "RENEWAL_TYPE": {
+      "business_meaning": "续保类型（自动续保/手动续保/改计划续保等，unknown）",
+      "data_type": "enum",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "renewal_type",
+        "RENEWAL_TYPE",
+        "renewalType",
+        "auto_renew_flag",
+        "AUTO_RENEW_FLAG"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空应为受控枚举"
+      ],
+      "derivation_hints": "由续保流程或保司续保标识映射得到"
+    },
+    "INITIAL_PAYMENT_MODE": {
+      "business_meaning": "首期缴费方式（如EFT/支票/账单等）",
+      "data_type": "enum",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "initial_payment_mode",
+        "INITIAL_PAYMENT_MODE",
+        "payment_mode",
+        "PAYMENT_MODE",
+        "first_payment_method",
+        "FIRST_PAYMENT_METHOD"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空应为受控枚举/代码"
+      ],
+      "derivation_hints": "来自申请/支付设置；首期支付方式可能与后续支付方式不同"
+    },
+    "CMS_DISENROLLMENT_CODE": {
+      "business_meaning": "CMS退保/解约代码（Disenrollment Code）",
+      "data_type": "string(0-10)",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "cms_disenrollment_code",
+        "CMS_DISENROLLMENT_CODE",
+        "disenrollment_code",
+        "DISENROLLMENT_CODE",
+        "cmsDisenrollmentCode"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空应在CMS退保代码字典内"
+      ],
+      "derivation_hints": "来自CMS/保司退保原因代码；与CANCELLATION_DATE、状态联动"
+    },
+    "STATUS_DATE": {
+      "business_meaning": "状态日期（当前状态生效/更新日期）",
+      "data_type": "date(MM/DD/YYYY)",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "status_date",
+        "STATUS_DATE",
+        "statusDate",
+        "status_effective_date",
+        "STATUS_EFFECTIVE_DATE",
+        "last_status_update"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空必须符合MM/DD/YYYY"
+      ],
+      "derivation_hints": "取状态变更事件日期；可能来自保司回传或内部工作流"
+    },
+    "PLAN_CHANGE_NOTE": {
+      "business_meaning": "计划变更备注（换计划/批改的说明）",
+      "data_type": "string(0-255)",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "plan_change_note",
+        "PLAN_CHANGE_NOTE",
+        "planChangeNote",
+        "change_note",
+        "CHANGE_NOTE",
+        "amendment_note"
+      ],
+      "validation_rules": [
+        "可为空",
+        "长度<=255"
+      ],
+      "derivation_hints": "源系统记录的变更原因/备注透传"
+    },
+    "CMS_CARRIER_POST_TERM": {
+      "business_meaning": "终止后CMS承保方/合同相关标识（字段含义不明确，可能为终止后承保方名称或代码）",
+      "data_type": "string(0-50)",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "cms_carrier_post_term",
+        "CMS_CARRIER_POST_TERM",
+        "post_term_carrier",
+        "POST_TERM_CARRIER",
+        "cmsCarrierPostTerm"
+      ],
+      "validation_rules": [
+        "可为空",
+        "长度<=50"
+      ],
+      "derivation_hints": "用于记录终止后转入的新承保方信息（例如自动转保/重新参保），具体口径unknown"
+    },
+    "CMS_CONTRACT_ID_POST_TERM": {
+      "business_meaning": "终止后CMS合同ID（转入/后续合同号）",
+      "data_type": "string(0-10)",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "cms_contract_id_post_term",
+        "CMS_CONTRACT_ID_POST_TERM",
+        "post_term_contract_id",
+        "POST_TERM_CONTRACT_ID"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空应符合CMS_CONTRACT_ID格式规则"
+      ],
+      "derivation_hints": "当发生终止并转入其他计划时记录新的CMS合同号"
+    },
+    "CMS_PLAN_ID_POST_TERM": {
+      "business_meaning": "终止后CMS计划ID（转入/后续计划号）",
+      "data_type": "string(0-5)",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "cms_plan_id_post_term",
+        "CMS_PLAN_ID_POST_TERM",
+        "post_term_plan_id",
+        "POST_TERM_PLAN_ID"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空应为数字字符串"
+      ],
+      "derivation_hints": "终止后转入计划的CMS计划编号"
+    },
+    "CMS_SEGMENT_ID_POST_TERM": {
+      "business_meaning": "终止后CMS Segment ID（转入/后续分段号）",
+      "data_type": "string(0-5)",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "cms_segment_id_post_term",
+        "CMS_SEGMENT_ID_POST_TERM",
+        "post_term_segment_id",
+        "POST_TERM_SEGMENT_ID"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空应为数字字符串"
+      ],
+      "derivation_hints": "终止后转入计划的Segment信息"
+    },
+    "BROKER_OF_RECORD": {
+      "business_meaning": "备案经纪人/记录经纪人（Broker of Record，BOR）标识或名称（unknown具体存ID还是姓名）",
+      "data_type": "string(0-100)",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "broker_of_record",
+        "BROKER_OF_RECORD",
+        "brokerOfRecord",
+        "bor",
+        "BOR",
+        "record_broker"
+      ],
+      "validation_rules": [
+        "可为空",
+        "长度<=100"
+      ],
+      "derivation_hints": "来自经纪人备案信息；可能与AGENT_ID/AGENCY_ID存在对应关系"
+    },
+    "AGENCY_NAME": {
+      "business_meaning": "代理机构名称（Agency/GA/NMO名称）",
+      "data_type": "string(0-150)",
+      "common_patterns": [
+        "EHEALTHINSURANCE SERVICES INC"
+      ],
+      "possible_source_fields": [
+        "agency_name",
+        "AGENCY_NAME",
+        "agencyName",
+        "brokerage_name",
+        "BROKERAGE_NAME",
+        "ga_name",
+        "GENERAL_AGENCY_NAME"
+      ],
+      "validation_rules": [
+        "可为空",
+        "长度<=150"
+      ],
+      "derivation_hints": "由AGENCY_ID关联机构维表获取，或源系统直接提供"
+    },
+    "AGENCY_ID": {
+      "business_meaning": "代理机构ID",
+      "data_type": "string(0-50)",
+      "common_patterns": [
+        "1273481"
+      ],
+      "possible_source_fields": [
+        "agency_id",
+        "AGENCY_ID",
+        "agencyId",
+        "brokerage_id",
+        "BROKERAGE_ID",
+        "ga_id",
+        "GENERAL_AGENCY_ID"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空应为ID型字符串/数字字符串"
+      ],
+      "derivation_hints": "来源于销售渠道/机构主数据"
+    },
+    "AGENT_NAME": {
+      "business_meaning": "代理人/经纪人姓名",
+      "data_type": "string(0-100)",
+      "common_patterns": [
+        "DEMERCADO, TEKLA"
+      ],
+      "possible_source_fields": [
+        "agent_name",
+        "AGENT_NAME",
+        "agentName",
+        "producer_name",
+        "PRODUCER_NAME",
+        "broker_name",
+        "BROKER_NAME"
+      ],
+      "validation_rules": [
+        "可为空",
+        "长度<=100"
+      ],
+      "derivation_hints": "来自销售人员主数据；格式可能为LAST, FIRST"
+    },
+    "AGENT_ID": {
+      "business_meaning": "代理人/经纪人ID（Producer ID）",
+      "data_type": "string(0-50)",
+      "common_patterns": [
+        "1529122"
+      ],
+      "possible_source_fields": [
+        "agent_id",
+        "AGENT_ID",
+        "agentId",
+        "producer_id",
+        "PRODUCER_ID",
+        "broker_id",
+        "BROKER_ID"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空应为ID型字符串/数字字符串"
+      ],
+      "derivation_hints": "来源于销售人员主数据；用于佣金、归属与合规"
+    },
+    "LAST_TOUCHED_DATE": {
+      "business_meaning": "最后触达/最后更新日期（记录最后一次被处理或更新的日期）",
+      "data_type": "date(MM/DD/YYYY)",
+      "common_patterns": [],
+      "possible_source_fields": [
+        "last_touched_date",
+        "LAST_TOUCHED_DATE",
+        "lastTouchedDate",
+        "last_update_date",
+        "LAST_UPDATE_DATE",
+        "updated_at"
+      ],
+      "validation_rules": [
+        "可为空",
+        "若非空必须符合MM/DD/YYYY（或源为datetime需转换）"
+      ],
+      "derivation_hints": "取最近一次修改时间/最近一次业务操作时间；ETL可由最大updated_at聚合"
+    }
+  },
+  "metadata": {
+    "total_fields": 93,
+    "analyzed_samples": 5,
+    "confidence": "low"
+  }
+}

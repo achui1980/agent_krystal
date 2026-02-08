@@ -180,40 +180,25 @@ class AutonomousCodeGenerator:
         self, rules_path: str, source_path: str, expected_path: str
     ) -> str:
         """Agent分析规则生成规格书"""
-        # 🆕 读取文件的实际内容
-        file_contents = self._read_file_contents(rules_path, source_path, expected_path)
-
         task = Task(
             description=f"""
 作为资深ETL测试专家和代码架构师，请深度分析以下材料并生成代码规格书：
 
-**输入文件实际内容：**
-
-1. **规则文件 (rules.xlsx Sheet1, 表头第5行):**
-```csv
-{file_contents["rules"][:5000]}
-...（共{len(file_contents["rules"])}字符，已截取前5000字符）
-```
-
-2. **Source模板 (source.csv 前10行):**
-```csv
-{file_contents["source"]}
-```
-
-3. **Expected模板 (expected.txt 前100行):**
-```
-{file_contents["expected"]}
-```
+**输入文件：**
+1. 规则文件: {rules_path}
+2. Source模板: {source_path}
+3. Expected模板: {expected_path}
 
 **分析步骤：**
 
 1. **读取并理解规则**
-   - 从上面的规则文件内容中逐行分析92条规则的业务含义
+   - 使用pandas读取rules.xlsx（Sheet1，表头在第5行）
+   - 逐行分析92条规则的业务含义
    - 识别字段映射关系
 
 2. **分析数据结构**
-   - Source字段：从上面的source.csv内容中识别所有字段
-   - Expected字段：从上面的expected.txt内容中识别所有字段
+   - Source字段：28个字段（读取source.csv前几行）
+   - Expected字段：93个字段（读取expected.txt的表头）
    - 识别字段对应关系
 
 3. **提取转换逻辑**
@@ -271,50 +256,14 @@ class AutonomousCodeGenerator:
 
         return result.raw
 
-    def _read_file_contents(
-        self, rules_path: str, source_path: str, expected_path: str
-    ) -> Dict[str, str]:
-        """读取输入文件的实际内容"""
-        import pandas as pd
-
-        # 读取 rules.xlsx (Sheet1, 表头在第5行)
-        try:
-            rules_df = pd.read_excel(rules_path, sheet_name="Sheet1", header=4)
-            rules_content = rules_df.to_csv(index=False)  # 转为CSV格式便于Agent阅读
-        except Exception as e:
-            rules_content = f"Error reading rules: {e}"
-
-        # 读取 source.csv (前10行)
-        try:
-            source_df = pd.read_csv(source_path, nrows=10)
-            source_content = source_df.to_csv(index=False)
-        except Exception as e:
-            source_content = f"Error reading source: {e}"
-
-        # 读取 expected.txt (所有行 - 特殊格式 FIELD_NAME:default_value)
-        try:
-            with open(expected_path, "r", encoding="utf-8") as f:
-                expected_lines = f.readlines()
-            expected_content = "".join(expected_lines[:100])  # 前100行
-        except Exception as e:
-            expected_content = f"Error reading expected: {e}"
-
-        return {
-            "rules": rules_content,
-            "source": source_content,
-            "expected": expected_content,
-        }
-
     def _generate_code(self, spec: str) -> str:
         """Agent生成Python代码"""
-        description = (
-            """
+        task = Task(
+            description=f"""
 根据以下规格书，生成完整的Python代码：
 
 **规格书：**
-"""
-            + spec
-            + """
+{spec}
 
 **代码要求：**
 
@@ -398,11 +347,7 @@ if __name__ == "__main__":
    - 返回值类型要明确
 
 请生成可直接保存为.py文件的完整代码，代码必须能够独立运行。
-"""
-        )
-
-        task = Task(
-            description=description,
+            """,
             expected_output="完整的Python代码（可直接执行）",
             agent=self.agent,
         )
