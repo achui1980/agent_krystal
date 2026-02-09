@@ -4,10 +4,12 @@ ETL Test Crew - CrewAI编排（启用Agent决策）
 """
 
 import os
+import sys
 import logging
 from datetime import datetime
 from typing import Dict, Any, Optional
 from pathlib import Path
+from io import StringIO
 
 from crewai import Crew, Task, Process
 from crewai.llm import LLM
@@ -18,6 +20,60 @@ from ..tasks import create_etl_tasks
 
 
 logger = logging.getLogger(__name__)
+
+
+class CrewOutputCapture:
+    """捕获CrewAI Agent输出（思考过程）"""
+
+    def __init__(self, test_id: str):
+        self.test_id = test_id
+        self.captured_output = StringIO()
+        self.original_stdout = None
+        self.is_capturing = False
+
+    def start(self):
+        """开始捕获stdout"""
+        if not self.is_capturing:
+            self.original_stdout = sys.stdout
+            sys.stdout = self.captured_output
+            self.is_capturing = True
+            logger.debug(f"[{self.test_id}] 开始捕获Agent输出")
+
+    def stop(self) -> str:
+        """停止捕获并返回内容"""
+        if self.is_capturing:
+            sys.stdout = self.original_stdout
+            self.is_capturing = False
+            output = self.captured_output.getvalue()
+            self.captured_output = StringIO()  # 重置
+            logger.debug(f"[{self.test_id}] 捕获完成，内容长度: {len(output)} 字符")
+            return output
+        return ""
+
+    def log_output(self, output: str, crew_name: str = "Crew"):
+        """将捕获的Agent输出记录到日志"""
+        if not output.strip():
+            return
+
+        logger.info(f"[{self.test_id}] {'=' * 60}")
+        logger.info(f"[{self.test_id}] 🤖 {crew_name} Agent思考过程与执行详情")
+        logger.info(f"[{self.test_id}] {'=' * 60}")
+
+        for line in output.split("\n"):
+            if line.strip():
+                # 识别不同类型的内容并添加标记
+                if any(kw in line for kw in ["Thought:", "思考:", "想法:"]):
+                    logger.info(f"[{self.test_id}] [AGENT] 💭 {line}")
+                elif any(kw in line for kw in ["Action:", "工具:", "调用:"]):
+                    logger.info(f"[{self.test_id}] [TOOL] 🔧 {line}")
+                elif any(kw in line for kw in ["Final Answer:", "结果:", "答案:"]):
+                    logger.info(f"[{self.test_id}] [RESULT] ✅ {line}")
+                elif any(kw in line for kw in ["Observation:", "观察:"]):
+                    logger.info(f"[{self.test_id}] [OBSERVE] 👁️  {line}")
+                else:
+                    logger.info(f"[{self.test_id}]      {line}")
+
+        logger.info(f"[{self.test_id}] {'=' * 60}")
 
 
 class ETLTestCrew:
@@ -360,12 +416,21 @@ class ETLTestCrew:
             verbose=True,
         )
 
-        # 执行ETL编排
+        # 执行ETL编排（带输出捕获）
         logger.info("🤖 Agent ETLOperator开始执行ETL流程...")
+        capture = CrewOutputCapture(self.test_id)
+        capture.start()
+
         try:
             crew_result = etl_crew.kickoff()
+            agent_output = capture.stop()
+
             logger.info(f"✅ CrewAI ETL编排完成")
             logger.info(f"📝 Agent执行结果: {crew_result}")
+
+            # 记录Agent思考过程
+            if agent_output:
+                capture.log_output(agent_output, "ETL执行")
 
             # 构建执行结果
             result = {
@@ -398,6 +463,9 @@ class ETLTestCrew:
             }
 
         except Exception as e:
+            agent_output = capture.stop()
+            if agent_output:
+                capture.log_output(agent_output, "ETL执行(失败)")
             logger.error(f"❌ CrewAI ETL编排失败: {e}")
             result = {
                 "success": False,
@@ -473,18 +541,30 @@ class ETLTestCrew:
             verbose=True,
         )
 
-        # 执行验证
+        # 执行验证（带输出捕获）
         logger.info("🤖 Agent ResultValidator正在分析差异...")
+        capture = CrewOutputCapture(self.test_id)
+        capture.start()
+
         try:
             crew_result = validation_crew.kickoff()
+            agent_output = capture.stop()
+
             logger.info(f"✅ CrewAI验证完成")
             logger.info(f"📝 Agent分析结果: {crew_result}")
+
+            # 记录Agent思考过程
+            if agent_output:
+                capture.log_output(agent_output, "验证分析")
 
             # 将Agent分析结果添加到验证结果中
             code_validation["llm_analysis"] = str(crew_result)
             code_validation["crewai_validation"] = True
 
         except Exception as e:
+            agent_output = capture.stop()
+            if agent_output:
+                capture.log_output(agent_output, "验证分析(失败)")
             logger.warning(f"⚠️ CrewAI验证执行失败: {e}")
             code_validation["llm_analysis"] = f"CrewAI验证失败: {e}"
             code_validation["crewai_validation"] = False
@@ -556,12 +636,21 @@ class ETLTestCrew:
             verbose=True,
         )
 
-        # 执行报告生成
+        # 执行报告生成（带输出捕获）
         logger.info("🤖 Agent ReportWriter正在生成报告...")
+        capture = CrewOutputCapture(self.test_id)
+        capture.start()
+
         try:
             crew_result = report_crew.kickoff()
+            agent_output = capture.stop()
+
             logger.info(f"✅ CrewAI报告生成完成")
             logger.info(f"📝 Agent报告总结: {crew_result}")
+
+            # 记录Agent思考过程
+            if agent_output:
+                capture.log_output(agent_output, "报告生成")
 
             # 生成实际报告文件
             from ..utils.report_generator import ReportGenerator
@@ -622,6 +711,9 @@ class ETLTestCrew:
             return paths
 
         except Exception as e:
+            agent_output = capture.stop()
+            if agent_output:
+                capture.log_output(agent_output, "报告生成(失败)")
             logger.error(f"❌ CrewAI报告生成失败: {e}")
             # 降级为直接生成
             return self._generate_reports_direct(etl_result, validation_result)

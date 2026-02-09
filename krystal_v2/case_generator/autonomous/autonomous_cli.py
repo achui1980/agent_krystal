@@ -19,8 +19,8 @@ project_root = Path(__file__).parent.parent.parent.parent
 sys.path.insert(0, str(project_root))
 
 import click
-from krystal_v2.case_generator.autonomous.autonomous_generator import (
-    AutonomousCodeGenerator,
+from krystal_v2.case_generator.autonomous.autonomous_generator_v2 import (
+    AutonomousCodeGeneratorV2 as AutonomousCodeGenerator,
 )
 
 

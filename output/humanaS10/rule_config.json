@@ -1,0 +1,32 @@
+{
+  "source_fields": [
+    "Member",
+    "DOB",
+    "MEDICARE_ID",
+    "Product",
+    "Plan_Name",
+    "Contract_ID"
+  ],
+  "source_format": "csv_quoted",
+  "record_count": 10,
+  "field_metadata": {
+    "Member": {
+      "format_hint": "LAST,FIRST"
+    },
+    "DOB": {
+      "format_hint": "YYYY-MM-DD; age 65-90"
+    },
+    "MEDICARE_ID": {
+      "format_hint": "11-character alphanumeric"
+    },
+    "Product": {
+      "format_hint": "One of: PDP, LPPO, HUM, HAP, HV"
+    },
+    "Plan_Name": {
+      "format_hint": "Contract-Plan format e.g., S5884-197"
+    },
+    "Contract_ID": {
+      "format_hint": "S-prefixed 4 digits e.g., S5884"
+    }
+  }
+}

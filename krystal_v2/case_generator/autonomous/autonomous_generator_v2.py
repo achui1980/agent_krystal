@@ -20,10 +20,15 @@ import traceback
 import subprocess
 from pathlib import Path
 from typing import Dict, List, Any, Optional
+from io import StringIO
 
 from crewai import Agent, Task, Crew, Process
 from crewai.llm import LLM
 from dotenv import load_dotenv
+
+# 导入日志系统
+sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
+from krystal.logging_utils import setup_krystal_logger, KrystalLogger
 
 # 导入新组件
 try:
@@ -53,18 +58,31 @@ class AutonomousCodeGeneratorV2:
     - Expected语义库 (提供字段业务含义)
     """
 
-    def __init__(self, max_iterations: int = 5, use_semantic_cache: bool = True):
+    def __init__(
+        self, max_iterations: int = 5, use_semantic_cache: bool = True, logger=None
+    ):
         """
         初始化生成器
 
         Args:
             max_iterations: 最大修复迭代次数
             use_semantic_cache: 是否使用语义库缓存
+            logger: 日志记录器（可选）
         """
         self.max_iterations = max_iterations
         self.use_semantic_cache = use_semantic_cache
         self.output_dir = Path("./generated_autonomous")
         self.output_dir.mkdir(exist_ok=True)
+
+        # 初始化日志系统
+        if logger is None:
+            self.logger = setup_krystal_logger(
+                name="autonomous_generator",
+                use_color=True,
+                test_id=f"autonomous_{Path(__file__).stem}",
+            )
+        else:
+            self.logger = logger
 
         # 初始化Agent
         api_key = os.getenv("OPENAI_API_KEY")
@@ -133,6 +151,15 @@ class AutonomousCodeGeneratorV2:
                 'version': 'v2'
             }
         """
+        # 记录测试开始
+        self.logger.log_test_start(
+            "自主代码生成",
+            rules_file=rules_path,
+            source_file=source_path,
+            expected_file=expected_path,
+            max_iterations=self.max_iterations,
+        )
+
         print("=" * 80)
         print("🤖 自主代码生成器 V2 (优化版)")
         print("=" * 80)
@@ -143,6 +170,7 @@ class AutonomousCodeGeneratorV2:
         print()
 
         # Step 0: 构建/加载Expected语义库
+        self.logger.log_step("语义库构建", "开始")
         print("📚 Step 0: 构建/加载Expected语义库...")
         try:
             self.semantic_map = self.semantic_builder.build_or_load_semantic_map(
@@ -151,15 +179,23 @@ class AutonomousCodeGeneratorV2:
             print(
                 f"   ✅ 语义库已加载: {len(self.semantic_map.get('fields', {}))} 个字段"
             )
+            self.logger.info(
+                f"   ✅ 语义库已加载: {len(self.semantic_map.get('fields', {}))} 个字段"
+            )
         except Exception as e:
             print(f"   ⚠️  语义库加载失败: {e}")
             print(f"   ℹ️  继续执行（无语义库支持）")
+            self.logger.warning(f"语义库加载失败: {e}")
             self.semantic_map = None
+        self.logger.log_step("语义库构建", "完成")
 
         # Step 1: Agent分析规则生成规格书
+        self.logger.log_step("规则分析", "开始")
         print("\n📝 Step 1: Agent分析规则...")
         spec = self._analyze_rules(rules_path, source_path, expected_path)
         print(f"   ✅ 生成规格书: {len(spec)} 字符")
+        self.logger.info(f"生成规格书: {len(spec)} 字符")
+        self.logger.log_step("规则分析", "完成")
 
         # Step 2-4: 代码生成-测试-修复循环
         code = None
@@ -167,15 +203,20 @@ class AutonomousCodeGeneratorV2:
 
         for iteration in range(self.max_iterations):
             print(f"\n🔧 第 {iteration + 1}/{self.max_iterations} 轮代码生成/修复")
+            self.logger.info(
+                f"第 {iteration + 1}/{self.max_iterations} 轮代码生成/修复"
+            )
 
             if iteration == 0:
                 # 第一轮：使用模板生成代码
+                self.logger.log_step("代码生成", "开始", iteration=iteration + 1)
                 print("   📝 使用模板系统生成代码...")
                 code = self._generate_code_with_template(
                     spec, rules_path, source_path, expected_path
                 )
             else:
                 # 后续轮：修复代码
+                self.logger.log_step("代码修复", "开始", iteration=iteration + 1)
                 print(
                     f"   🔧 修复代码 (基于错误: {final_result.get('error_type', 'Unknown')})..."
                 )
@@ -186,13 +227,19 @@ class AutonomousCodeGeneratorV2:
             with open(code_path, "w", encoding="utf-8") as f:
                 f.write(code)
             print(f"   💾 代码已保存: {code_path}")
+            self.logger.info(f"代码已保存: {code_path}")
 
             # 使用智能测试
+            self.logger.log_step("代码测试", "开始", iteration=iteration + 1)
             print("   🧪 使用智能测试验证代码...")
             final_result = self._test_code_smart(code, spec, source_path, expected_path)
 
             if final_result["success"]:
                 print(f"   ✅ 测试通过！代码在第 {iteration + 1} 轮验证成功！")
+                self.logger.info(f"✅ 测试通过！代码在第 {iteration + 1} 轮验证成功！")
+                self.logger.log_step(
+                    "代码测试", "完成", iteration=iteration + 1, status="success"
+                )
                 break
             else:
                 print(f"   ❌ 测试失败")
@@ -200,9 +247,27 @@ class AutonomousCodeGeneratorV2:
                 print(
                     f"      错误信息: {final_result.get('error_message', 'No message')[:100]}..."
                 )
+                self.logger.error(
+                    f"测试失败: {final_result.get('error_type', 'Unknown')}"
+                )
+                self.logger.log_step(
+                    "代码测试",
+                    "失败",
+                    iteration=iteration + 1,
+                    error_type=final_result.get("error_type", "Unknown"),
+                )
         else:
             # 达到最大次数仍未成功
             print(f"\n❌ 达到最大修复次数 ({self.max_iterations})，代码仍无法运行")
+            self.logger.error(
+                f"达到最大修复次数 ({self.max_iterations})，代码仍无法运行"
+            )
+            self.logger.log_test_end(
+                "自主代码生成",
+                success=False,
+                duration=0,
+                error="Max iterations reached",
+            )
             return {
                 "success": False,
                 "error": "Max iterations reached",
@@ -212,12 +277,23 @@ class AutonomousCodeGeneratorV2:
             }
 
         # Step 5: 执行最终代码生成数据
+        self.logger.log_step("最终执行", "开始")
         print("\n🚀 Step 5: 执行最终代码生成数据...")
         data = self._execute_final_code(code)
 
         print("\n" + "=" * 80)
         print("✅ 自主代码生成完成 (V2)！")
         print("=" * 80)
+
+        # 记录测试完成
+        self.logger.log_test_end(
+            "自主代码生成",
+            success=True,
+            duration=0,  # 实际应该记录时间
+            iterations=iteration + 1,
+            code_path=str(code_path),
+            data_count=len(data) if data else 0,
+        )
 
         return {
             "success": True,
@@ -366,7 +442,25 @@ class AutonomousCodeGeneratorV2:
         )
 
         crew = Crew(agents=[self.agent], tasks=[task], verbose=False)
+
+        # 捕获Agent思考过程
+        self.logger.info("🤖 Agent开始分析规则...")
+        self.logger.start_agent_capture()
         result = crew.kickoff()
+        agent_output = self.logger.stop_agent_capture()
+
+        # 记录Agent思考过程
+        if agent_output:
+            # 将Agent输出记录到日志
+            self.logger.info(f"{'=' * 60}")
+            self.logger.info(f"🤖 规则分析Agent思考过程与执行详情")
+            self.logger.info(f"{'=' * 60}")
+            for line in agent_output.split("\n"):
+                if line.strip():
+                    self.logger.info(f"    {line}")
+            self.logger.info(f"{'=' * 60}")
+
+        self.logger.info(f"✅ Agent分析完成，生成了 {len(result.raw)} 字符的规格书")
 
         return result.raw
 

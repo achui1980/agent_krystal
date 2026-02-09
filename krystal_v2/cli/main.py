@@ -37,6 +37,7 @@ logging.basicConfig(
 
 from krystal_v2.crews.etl_test_crew import ETLTestCrew
 from krystal.config import ConfigManager
+from krystal.log_viewer import create_logs_subparser, handle_logs_command
 
 
 def cli():
@@ -101,12 +102,17 @@ def cli():
     # version 命令
     version_parser = subparsers.add_parser("version", help="显示版本信息")
 
+    # logs 命令
+    create_logs_subparser(subparsers)
+
     args = parser.parse_args()
 
     if args.command == "test":
         run_test(args)
     elif args.command == "version":
         show_version()
+    elif args.command == "logs":
+        handle_logs_command(args)
     else:
         parser.print_help()
         sys.exit(1)
