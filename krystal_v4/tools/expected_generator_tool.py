@@ -8,11 +8,15 @@ fills fixed values, and writes generated_expected.txt.
 import csv
 import json
 import io
+import logging
 from datetime import datetime
 from typing import Dict, Any, List
 from crewai.tools import BaseTool
 from pydantic import BaseModel, Field
 from krystal_v4.transformers.transformer_registry import TransformerRegistry
+from krystal_v4.utils.validation import validate_rule_config_against_transformers
+
+logger = logging.getLogger("krystal_v4")
 
 
 class ExpectedGeneratorInput(BaseModel):
@@ -53,6 +57,28 @@ class ExpectedGeneratorTool(BaseTool):
             source_format = rule_config.get("source_format", "csv_quoted")
             output_metadata = rule_config.get("output_metadata", {})
 
+            # Step 1.5: Validate all transformation rules BEFORE processing
+            validation_errors = validate_rule_config_against_transformers(transformation_rules)
+            if validation_errors:
+                for ve in validation_errors:
+                    logger.error(
+                        f"Invalid transformation rule for '{ve['target_field']}' "
+                        f"(type={ve['type']}): {ve['error']}"
+                    )
+                # Write validation errors to file
+                error_file = f"output/{case_name}/transformation_errors.json"
+                with open(error_file, "w", encoding="utf-8") as ef:
+                    json.dump({"validation_errors": validation_errors}, ef, indent=2)
+
+                return (
+                    f"ERROR: {len(validation_errors)} transformation rule(s) have invalid configs. "
+                    f"See {error_file} for details.\n"
+                    + "\n".join(
+                        f"  - {ve['target_field']} ({ve['type']}): {ve['error']}"
+                        for ve in validation_errors
+                    )
+                )
+
             # Step 2: Read generated_source.txt
             source_path = f"output/{case_name}/generated_source.txt"
             source_records = self._read_source(source_path, source_format)
@@ -80,6 +106,13 @@ class ExpectedGeneratorTool(BaseTool):
             output_path = f"output/{case_name}/generated_expected.txt"
             self._write_output(output_path, target_fields, output_rows, output_metadata, case_name)
 
+            # Step 4.5: Write transformation errors file if any errors occurred
+            if errors:
+                error_file = f"output/{case_name}/transformation_errors.json"
+                with open(error_file, "w", encoding="utf-8") as ef:
+                    json.dump({"record_errors": errors}, ef, indent=2)
+                logger.warning(f"{len(errors)} record(s) had transformation errors. See {error_file}")
+
             # Step 5: Return summary
             summary = (
                 f"Successfully generated expected output: {output_path}\n"
@@ -89,9 +122,10 @@ class ExpectedGeneratorTool(BaseTool):
                 f"- Fixed values applied: {len(fixed_values)}"
             )
             if errors:
-                summary += f"\n- Warnings: {len(errors)} records had errors:\n"
+                summary += f"\n- Errors: {len(errors)} records had transformation errors:\n"
                 for err in errors[:5]:
                     summary += f"  - {err}\n"
+                summary += f"\n  See output/{case_name}/transformation_errors.json for full details."
 
             return summary
 
@@ -141,6 +175,10 @@ class ExpectedGeneratorTool(BaseTool):
                 value = transformer.transform(source_record)
                 output_record[target_field] = str(value) if value is not None else ""
             except Exception as e:
+                logger.error(
+                    f"Transformation failed for '{target_field}' "
+                    f"(type={transformation_type}, config={config}): {e}"
+                )
                 output_record[target_field] = ""
 
         # Step B: Apply fixed values

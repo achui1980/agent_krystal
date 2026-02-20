@@ -275,3 +275,4 @@ crewai_test_output.log
 
 # Krystal - Keep only final version
 !generated_autonomous/data_generator_final.py
+logs/*.log

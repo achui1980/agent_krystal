@@ -6,6 +6,7 @@ Defines the three main tasks in the ETL test data generation pipeline.
 from crewai import Task
 from crewai import Agent
 from typing import List
+from krystal_v4.transformers.transformer_registry import TransformerRegistry
 
 
 def create_analyze_rules_task(
@@ -49,22 +50,26 @@ def create_analyze_rules_task(
             f"**YOUR TASK: Analyze ONLY these SPECIAL_RULES rows to create transformation_rules:**\n{special_rules_str}\n\n"
         )
 
+    # Auto-generate transformer schema for the LLM
+    transformer_schema_prompt = TransformerRegistry.get_schema_prompt()
+
     return Task(
         description=(
             f"Analyze ETL transformation rules and create structured configuration.\n\n"
             f"**Input**: {rules_file}\n"
             f"**Output**: output/{case_name}/rule_config.json\n\n"
             f"{pre_parsed_section}"
-            f"**YOUR ONLY JOB**: For each special_rules row, determine the transformation type:\n"
-            f"  - **direct**: SPECIAL_RULES is empty → simple field mapping\n"
-            f"  - **conditional_map**: SPECIAL_RULES contains 'if...map to' → create mappings dict\n"
-            f"  - **name_parser**: SPECIAL_RULES mentions 'last_name, first_name' → parse name parts\n"
-            f"  - **split_extract**: SPECIAL_RULES mentions 'separated by' or '-' split → extract part\n\n"
+            f"**YOUR ONLY JOB**: For each special_rules row, determine the transformation type "
+            f"and create the EXACT config dict as specified below.\n\n"
+            f"{transformer_schema_prompt}\n\n"
             f"**transformation_rules format**: Each rule must have:\n"
             f"  - target_field: the CS_COLUMN_NAME\n"
             f"  - source_field: the CARRIER_COLUMN_NAME\n"
-            f"  - transformation_type: one of direct/conditional_map/name_parser/split_extract\n"
-            f"  - config: type-specific config dict\n\n"
+            f"  - transformation_type: MUST be one of the types listed above\n"
+            f"  - config: MUST follow the exact schema for that type (see above)\n\n"
+            f"**CRITICAL**: Do NOT invent config fields that are not in the schema above.\n"
+            f"If you see 'preprocess' or 'method' in SPECIAL_RULES text, map it to the correct\n"
+            f"transformer type (e.g. 'left 3 chars' → substring with method='left', length=3).\n\n"
             f"**For conditional_map**, also create:\n"
             f"  - conditional_coverage: {{source_field: [all_possible_values]}}\n"
             f"    For 'all others'/'default' cases, use 'LPPO' as the representative value\n"

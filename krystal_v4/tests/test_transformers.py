@@ -96,6 +96,8 @@ def test_transformer_registry():
         ("conditional_map", {"source_field": "test", "mappings": {"a": "b"}}),
         ("split_extract", {"source_field": "test", "delimiter": "-", "index": 0}),
         ("empty", {}),
+        ("substring", {"source_field": "test", "method": "left", "length": 3}),
+        ("phone_parser", {"source_field": "test", "part": "area_code"}),
     ]
 
     for trans_type, config in types_to_test:
@@ -107,6 +109,34 @@ def test_transformer_registry_invalid_type():
     """Test TransformerRegistry raises error for invalid type"""
     with pytest.raises(ValueError, match="Unknown transformation type"):
         TransformerRegistry.get_transformer("invalid_type", {})
+
+
+def test_transformer_registry_list_types():
+    """Test that list_types includes new transformer types"""
+    types = TransformerRegistry.list_types()
+    assert "substring" in types
+    assert "phone_parser" in types
+    assert "fixed" in types
+    assert "direct" in types
+
+
+def test_transformer_registry_get_all_schemas():
+    """Test get_all_schemas returns schemas for all types"""
+    schemas = TransformerRegistry.get_all_schemas()
+    assert len(schemas) == 8  # 6 original + 2 new
+    for type_name, schema in schemas.items():
+        assert "description" in schema
+        assert "config" in schema
+        assert "examples" in schema
+
+
+def test_transformer_registry_get_schema_prompt():
+    """Test get_schema_prompt returns formatted string"""
+    prompt = TransformerRegistry.get_schema_prompt()
+    assert "## Available Transformation Types" in prompt
+    assert "substring" in prompt
+    assert "phone_parser" in prompt
+    assert "Pattern Matching Guide" in prompt
 
 
 def test_transformer_validation_errors():

@@ -31,6 +31,24 @@ class ConditionalTransformer(BaseTransformer):
         result = transformer.transform({"Product": "PDP"})  # Returns "MD"
     """
 
+    @classmethod
+    def schema(cls) -> Dict[str, Any]:
+        return {
+            "description": "Maps source values to target values using a lookup table. Falls back to default if no match.",
+            "config": {
+                "source_field": {"type": "str", "required": True, "description": "Source field to look up"},
+                "mappings": {"type": "dict", "required": True, "description": "Mapping from source values to target values, e.g. {\"PDP\": \"MD\", \"HAP\": \"MS\"}"},
+                "default": {"type": "str", "required": False, "description": "Default value when no mapping matches"},
+            },
+            "examples": [
+                {
+                    "config": {"source_field": "Product", "mappings": {"PDP": "MD", "HAP": "MS"}, "default": "MA/MAPD"},
+                    "input": {"Product": "PDP"},
+                    "output": "MD",
+                },
+            ],
+        }
+
     def __init__(self, config: Dict[str, Any]):
         """
         Initialize and normalize mappings by trimming whitespace.

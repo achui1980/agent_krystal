@@ -74,6 +74,8 @@ def pre_parse_rules(rules_file: str, case_dir: str = None) -> Dict[str, Any]:
     source_format = "csv_quoted"  # safe default for files with commas in fields
     if case_dir:
         ref_source = Path(case_dir) / "source.csv"
+        if not ref_source.exists():
+            ref_source = Path(case_dir) / "source.txt"
         if ref_source.exists():
             detector = FormatDetectorTool()
             source_format = detector._run(str(ref_source))

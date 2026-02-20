@@ -4,7 +4,7 @@ All transformers must inherit from this class.
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 
 
 class BaseTransformer(ABC):
@@ -21,6 +21,25 @@ class BaseTransformer(ABC):
         """
         self.config = config
         self.validate_config()
+
+    @classmethod
+    @abstractmethod
+    def schema(cls) -> Dict[str, Any]:
+        """
+        Return the configuration schema for this transformer.
+
+        Returns:
+            Dictionary describing the expected config format:
+            {
+                "description": "What this transformer does",
+                "config": {
+                    "field_name": {"type": "str", "required": True, "description": "..."},
+                    ...
+                },
+                "examples": [{"config": {...}, "input": ..., "output": ...}]
+            }
+        """
+        pass
 
     @abstractmethod
     def validate_config(self) -> None:

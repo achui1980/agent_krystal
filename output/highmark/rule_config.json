@@ -1,21 +1,24 @@
 {
   "source_format": "csv_quoted",
   "source_fields": [
-    "Product",
-    "Eff_Date",
-    "Term_Date",
-    "Address1",
-    "City",
-    "State",
-    "Zip",
-    "Member",
-    "DOB",
-    "MEDICARE_ID",
-    "Plan_Name",
-    "AOR_Name",
-    "AOR_SAN",
-    "Agent",
-    "SAN"
+    "CONFIRMATION_NUMBER",
+    "PLAN_TYPE",
+    "SUBSCRIBER_ID",
+    "COVERAGE_EFFECTIVE_DATE",
+    "COVERAGE_END_DATE",
+    "APPLICANT_ADDR_1",
+    "APPLICANT_STATE",
+    "APPLICANT_ZIP",
+    "APPLICANT_FIRST_NAME",
+    "APPLICANT_MIDDLE_INITIAL",
+    "APPLICANT_LAST_NAME",
+    "APPLICANT_EMAIL_ADDRESS",
+    "HICN",
+    "APPLICANT_PHONE",
+    "CONTRACT_ID",
+    "PLAN_ID",
+    "SEGMENT_ID",
+    "AGENT_WRITING_NUMBER"
   ],
   "target_fields": [
     "CARRIER_STATUS_MAP",
@@ -112,7 +115,7 @@
     "AGENT_ID"
   ],
   "fixed_values": {
-    "CARRIER_FAMILY_ID": "66,175,206",
+    "CARRIER_FAMILY_ID": "23",
     "IS_PAID": "1",
     "BUSINESS_LINE": "2",
     "MEMBER_NUMBER": "1",
@@ -122,192 +125,214 @@
   },
   "transformation_rules": [
     {
+      "target_field": "APPLICATION_ID",
+      "source_field": "CONFIRMATION_NUMBER",
+      "transformation_type": "direct",
+      "config": {}
+    },
+    {
       "target_field": "PRODUCT_LINE",
-      "source_field": "Product",
+      "source_field": "PLAN_TYPE",
       "transformation_type": "conditional_map",
       "config": {
         "mappings": {
-          "PDP": "MD",
-          "HAP": "MS",
-          "HUM": "MS",
-          "HV": "MS",
-          "RD": "MS"
+          "MAPD": "MA",
+          "LPPO": "LPPO"
         },
-        "default": "MA/MAPD"
+        "default": "LPPO"
       }
     },
     {
+      "target_field": "POLICY_NUMBER",
+      "source_field": "SUBSCRIBER_ID",
+      "transformation_type": "direct",
+      "config": {}
+    },
+    {
       "target_field": "EFFECTIVE_START_DATE",
-      "source_field": "Eff_Date",
+      "source_field": "COVERAGE_EFFECTIVE_DATE",
       "transformation_type": "direct",
       "config": {}
     },
     {
       "target_field": "CANCELLATION_DATE",
-      "source_field": "Term_Date",
+      "source_field": "COVERAGE_END_DATE",
       "transformation_type": "direct",
       "config": {}
     },
     {
       "target_field": "ADDRESS_LINE_1",
-      "source_field": "Address1",
-      "transformation_type": "direct",
-      "config": {}
-    },
-    {
-      "target_field": "CITY",
-      "source_field": "City",
+      "source_field": "APPLICANT_ADDR_1",
       "transformation_type": "direct",
       "config": {}
     },
     {
       "target_field": "STATE",
-      "source_field": "State",
+      "source_field": "APPLICANT_STATE",
       "transformation_type": "direct",
       "config": {}
     },
     {
       "target_field": "ZIP_CODE",
-      "source_field": "Zip",
+      "source_field": "APPLICANT_ZIP",
       "transformation_type": "direct",
       "config": {}
     },
     {
       "target_field": "FIRST_NAME",
-      "source_field": "Member",
-      "transformation_type": "name_parser",
-      "config": {
-        "format": "last_first_comma",
-        "delimiter": ",",
-        "part": "first",
-        "trim": true
-      }
+      "source_field": "APPLICANT_FIRST_NAME",
+      "transformation_type": "direct",
+      "config": {}
+    },
+    {
+      "target_field": "MIDDLE_NAME",
+      "source_field": "APPLICANT_MIDDLE_INITIAL",
+      "transformation_type": "direct",
+      "config": {}
     },
     {
       "target_field": "LAST_NAME",
-      "source_field": "Member",
-      "transformation_type": "name_parser",
-      "config": {
-        "format": "last_first_comma",
-        "delimiter": ",",
-        "part": "last",
-        "trim": true
-      }
+      "source_field": "APPLICANT_LAST_NAME",
+      "transformation_type": "direct",
+      "config": {}
     },
     {
-      "target_field": "BIRTH_DATE",
-      "source_field": "DOB",
+      "target_field": "EMAIL",
+      "source_field": "APPLICANT_EMAIL_ADDRESS",
       "transformation_type": "direct",
       "config": {}
     },
     {
       "target_field": "MEDICARE_ID",
-      "source_field": "MEDICARE_ID",
+      "source_field": "HICN",
       "transformation_type": "direct",
       "config": {}
+    },
+    {
+      "target_field": "AREA_CODE",
+      "source_field": "APPLICANT_PHONE",
+      "transformation_type": "split_extract",
+      "config": {
+        "preprocess": {
+          "remove_special_chars": "`~!@#$%^&*()_-+={[}]|\\:;'\"<,>.?/",
+          "remove_whitespace": true
+        },
+        "method": "left",
+        "length": 3
+      }
+    },
+    {
+      "target_field": "PHONE_NUMBER",
+      "source_field": "APPLICANT_PHONE",
+      "transformation_type": "split_extract",
+      "config": {
+        "preprocess": {
+          "remove_special_chars": "`~!@#$%^&*()_-+={[}]|\\:;'\"<,>.?/",
+          "remove_whitespace": true
+        },
+        "method": "remove_left",
+        "remove_length": 3,
+        "format": {
+          "insert": "-",
+          "position": 3
+        }
+      }
     },
     {
       "target_field": "CMS_CONTRACT_ID",
-      "source_field": "Plan_Name",
-      "transformation_type": "split_extract",
-      "config": {
-        "delimiter": "-",
-        "index": 0,
-        "trim": true,
-        "on_missing_delimiter": "return_source"
-      }
+      "source_field": "CONTRACT_ID",
+      "transformation_type": "direct",
+      "config": {}
     },
     {
       "target_field": "CMS_PLAN_ID",
-      "source_field": "Plan_Name",
-      "transformation_type": "split_extract",
-      "config": {
-        "delimiter": "-",
-        "index": 1,
-        "trim": true,
-        "on_missing_delimiter": "empty"
-      }
-    },
-    {
-      "target_field": "AGENCY_NAME",
-      "source_field": "AOR_Name",
+      "source_field": "PLAN_ID",
       "transformation_type": "direct",
       "config": {}
     },
     {
-      "target_field": "AGENCY_ID",
-      "source_field": "AOR_SAN",
-      "transformation_type": "direct",
-      "config": {}
-    },
-    {
-      "target_field": "AGENT_NAME",
-      "source_field": "Agent",
+      "target_field": "CMS_SEGMENT_ID",
+      "source_field": "SEGMENT_ID",
       "transformation_type": "direct",
       "config": {}
     },
     {
       "target_field": "AGENT_ID",
-      "source_field": "SAN",
+      "source_field": "AGENT_WRITING_NUMBER",
       "transformation_type": "direct",
       "config": {}
     }
   ],
   "conditional_coverage": {
-    "Product": [
-      "PDP",
-      "HAP",
-      "HUM",
-      "HV",
-      "RD",
+    "PLAN_TYPE": [
+      "MAPD",
       "LPPO"
     ]
   },
   "product_line_mapping": {
-    "PDP": "MD",
-    "HAP": "MS",
-    "HUM": "MS",
-    "HV": "MS",
-    "RD": "MS",
-    "LPPO": "MA/MAPD"
+    "MAPD": "MA",
+    "LPPO": "LPPO"
   },
   "field_metadata": {
+    "APPLICATION_ID": {
+      "type": "string"
+    },
+    "PRODUCT_LINE": {
+      "type": "string"
+    },
+    "POLICY_NUMBER": {
+      "type": "string"
+    },
     "EFFECTIVE_START_DATE": {
-      "type": "date",
-      "source_format_hint": "as_is"
+      "type": "date"
     },
     "CANCELLATION_DATE": {
-      "type": "date",
-      "source_format_hint": "as_is"
+      "type": "date"
     },
-    "BIRTH_DATE": {
-      "type": "date",
-      "source_format_hint": "as_is"
+    "ADDRESS_LINE_1": {
+      "type": "string"
+    },
+    "STATE": {
+      "type": "string",
+      "format": "USPS_2"
     },
     "ZIP_CODE": {
       "type": "string",
-      "pattern_hint": "zip"
+      "format": "zip5_or_zip9"
+    },
+    "FIRST_NAME": {
+      "type": "string"
+    },
+    "MIDDLE_NAME": {
+      "type": "string",
+      "format": "middle_initial"
+    },
+    "LAST_NAME": {
+      "type": "string"
+    },
+    "EMAIL": {
+      "type": "string",
+      "format": "email"
     },
     "MEDICARE_ID": {
       "type": "string"
     },
-    "CMS_CONTRACT_ID": {
+    "AREA_CODE": {
       "type": "string",
-      "pattern_hint": "contract_id"
+      "format": "digits",
+      "length": 3
+    },
+    "PHONE_NUMBER": {
+      "type": "string",
+      "format": "nnn-nnnn"
+    },
+    "CMS_CONTRACT_ID": {
+      "type": "string"
     },
     "CMS_PLAN_ID": {
-      "type": "string",
-      "pattern_hint": "plan_id"
+      "type": "string"
     },
-    "FIRST_NAME": {
-      "type": "string",
-      "pattern_hint": "person_first_name"
-    },
-    "LAST_NAME": {
-      "type": "string",
-      "pattern_hint": "person_last_name"
-    },
-    "AGENCY_ID": {
+    "CMS_SEGMENT_ID": {
       "type": "string"
     },
     "AGENT_ID": {

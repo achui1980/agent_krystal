@@ -21,6 +21,20 @@ class NameParserTransformer(BaseTransformer):
         result = transformer.transform({"Member": "MOUSE,MICKEY"})  # Returns "MICKEY"
     """
 
+    @classmethod
+    def schema(cls) -> Dict[str, Any]:
+        return {
+            "description": "Parses 'LAST,FIRST' format names and extracts first or last name.",
+            "config": {
+                "source_field": {"type": "str", "required": True, "description": "Source field containing 'LAST,FIRST' name"},
+                "part": {"type": "str", "required": True, "description": "Which part to extract: 'first' or 'last'", "enum": ["first", "last"]},
+            },
+            "examples": [
+                {"config": {"source_field": "Member", "part": "first"}, "input": {"Member": "MOUSE,MICKEY"}, "output": "MICKEY"},
+                {"config": {"source_field": "Member", "part": "last"}, "input": {"Member": "MOUSE,MICKEY"}, "output": "MOUSE"},
+            ],
+        }
+
     def validate_config(self) -> None:
         """Validate configuration."""
         if "source_field" not in self.config:

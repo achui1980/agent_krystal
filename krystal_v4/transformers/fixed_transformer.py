@@ -20,6 +20,18 @@ class FixedTransformer(BaseTransformer):
         result = transformer.transform(record)  # Returns "66,175,206"
     """
 
+    @classmethod
+    def schema(cls) -> Dict[str, Any]:
+        return {
+            "description": "Returns a constant value regardless of input.",
+            "config": {
+                "value": {"type": "str", "required": True, "description": "The fixed value to return"},
+            },
+            "examples": [
+                {"config": {"value": "66,175,206"}, "output": "66,175,206"},
+            ],
+        }
+
     def validate_config(self) -> None:
         """Validate that 'value' is present in config."""
         if "value" not in self.config:

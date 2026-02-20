@@ -13,6 +13,8 @@ VALID_TRANSFORMATION_TYPES = {
     "name_parser",
     "split_extract",
     "empty",
+    "substring",
+    "phone_parser",
 }
 
 VALID_SOURCE_FORMATS = {"csv_quoted", "pipe", "comma"}
@@ -141,6 +143,26 @@ def validate_transformation_rule(rule: TransformationRule, index: int) -> List[s
         elif not isinstance(rule.config["index"], int):
             errors.append(f"{prefix}: 'index' must be an integer")
 
+    elif rule.transformation_type == "substring":
+        if "source_field" not in rule.config:
+            errors.append(f"{prefix}: 'substring' requires 'source_field'")
+        if "method" not in rule.config:
+            errors.append(f"{prefix}: 'substring' requires 'method'")
+        elif rule.config["method"] not in ("left", "right", "mid"):
+            errors.append(f"{prefix}: 'method' must be 'left', 'right', or 'mid'")
+        if "length" not in rule.config:
+            errors.append(f"{prefix}: 'substring' requires 'length'")
+        elif not isinstance(rule.config["length"], int) or rule.config["length"] <= 0:
+            errors.append(f"{prefix}: 'length' must be a positive integer")
+
+    elif rule.transformation_type == "phone_parser":
+        if "source_field" not in rule.config:
+            errors.append(f"{prefix}: 'phone_parser' requires 'source_field'")
+        if "part" not in rule.config:
+            errors.append(f"{prefix}: 'phone_parser' requires 'part'")
+        elif rule.config["part"] not in ("area_code", "phone_number"):
+            errors.append(f"{prefix}: 'part' must be 'area_code' or 'phone_number'")
+
     return errors
 
 
@@ -162,5 +184,43 @@ def validate_source_record(
     for field in required_fields:
         if field not in record:
             errors.append(f"Missing required field: {field}")
+
+    return errors
+
+
+def validate_rule_config_against_transformers(
+    transformation_rules: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    """
+    Validate each transformation rule by attempting to instantiate its transformer.
+    This catches config mismatches BEFORE processing any records.
+
+    Args:
+        transformation_rules: List of rule dicts from rule_config.json
+
+    Returns:
+        List of error dicts: [{"target_field": ..., "type": ..., "error": ...}]
+    """
+    from krystal_v4.transformers.transformer_registry import TransformerRegistry
+
+    errors = []
+    for rule in transformation_rules:
+        target_field = rule.get("target_field", "UNKNOWN")
+        source_field = rule.get("source_field", "")
+        transformation_type = rule.get("transformation_type", "")
+        config = dict(rule.get("config", {}))
+
+        # Inject source_field into config if not present
+        if "source_field" not in config and source_field:
+            config["source_field"] = source_field
+
+        try:
+            TransformerRegistry.get_transformer(transformation_type, config)
+        except Exception as e:
+            errors.append({
+                "target_field": target_field,
+                "type": transformation_type,
+                "error": str(e),
+            })
 
     return errors

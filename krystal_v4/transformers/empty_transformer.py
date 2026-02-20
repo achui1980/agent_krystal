@@ -20,6 +20,16 @@ class EmptyTransformer(BaseTransformer):
         result = transformer.transform(record)  # Returns ""
     """
 
+    @classmethod
+    def schema(cls) -> Dict[str, Any]:
+        return {
+            "description": "Returns empty string. Use for fields that should always be blank.",
+            "config": {},
+            "examples": [
+                {"config": {}, "output": ""},
+            ],
+        }
+
     def validate_config(self) -> None:
         """No configuration required for empty transformer."""
         pass

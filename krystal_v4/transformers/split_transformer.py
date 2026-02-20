@@ -22,6 +22,21 @@ class SplitTransformer(BaseTransformer):
         result = transformer.transform({"Plan_Name": "S5884-197"})  # Returns "S5884"
     """
 
+    @classmethod
+    def schema(cls) -> Dict[str, Any]:
+        return {
+            "description": "Splits a string by delimiter and extracts element at specified index.",
+            "config": {
+                "source_field": {"type": "str", "required": True, "description": "Source field to split"},
+                "delimiter": {"type": "str", "required": True, "description": "Delimiter to split on (e.g. '-', ' ', ',')"},
+                "index": {"type": "int", "required": True, "description": "0-based index of element to extract"},
+            },
+            "examples": [
+                {"config": {"source_field": "Plan_Name", "delimiter": "-", "index": 0}, "input": {"Plan_Name": "S5884-197"}, "output": "S5884"},
+                {"config": {"source_field": "Plan_Name", "delimiter": "-", "index": 1}, "input": {"Plan_Name": "S5884-197"}, "output": "197"},
+            ],
+        }
+
     def validate_config(self) -> None:
         """Validate configuration."""
         if "source_field" not in self.config:

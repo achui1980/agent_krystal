@@ -487,5 +487,146 @@ class TestPreParseRules:
         assert len(result["special_rules_rows"]) == 2
 
 
+# ─── Validation gate tests ───────────────────────────────────────────
+
+class TestValidationGate:
+    """Test the pre-execution validation in ExpectedGeneratorTool."""
+
+    @pytest.fixture
+    def setup_invalid_config(self, tmp_path):
+        """Create a test case with invalid transformation rules."""
+        case_name = "invalid_case"
+        case_dir = tmp_path / "output" / case_name
+        case_dir.mkdir(parents=True)
+
+        # rule_config with invalid transformation type
+        rule_config = {
+            "source_format": "csv_quoted",
+            "source_fields": ["Member"],
+            "target_fields": ["FIRST_NAME", "AREA_CODE"],
+            "fixed_values": {},
+            "transformation_rules": [
+                {
+                    "target_field": "FIRST_NAME",
+                    "source_field": "Member",
+                    "transformation_type": "name_parser",
+                    "config": {"source_field": "Member", "part": "first"},
+                },
+                {
+                    "target_field": "AREA_CODE",
+                    "source_field": "Phone",
+                    "transformation_type": "split_extract",
+                    "config": {
+                        "preprocess": "strip_non_digits",
+                        "method": "left",
+                        "length": 3,
+                    },
+                },
+            ],
+            "output_metadata": {},
+        }
+        with open(case_dir / "rule_config.json", "w") as f:
+            json.dump(rule_config, f)
+
+        # Source file (won't be reached because validation fails first)
+        with open(case_dir / "generated_source.txt", "w", newline="") as f:
+            writer = csv.writer(f, quoting=csv.QUOTE_ALL)
+            writer.writerow(["Member", "Phone"])
+            writer.writerow(["MOUSE,MICKEY", "(555) 867-5309"])
+
+        return tmp_path, case_name
+
+    def test_validation_blocks_execution(self, setup_invalid_config):
+        """Invalid config should be caught before any records are processed."""
+        tmp_path, case_name = setup_invalid_config
+        tool = ExpectedGeneratorTool()
+
+        original_cwd = os.getcwd()
+        os.chdir(tmp_path)
+        try:
+            result = tool._run(case_name=case_name)
+        finally:
+            os.chdir(original_cwd)
+
+        assert "ERROR" in result
+        assert "invalid" in result.lower() or "transformation_errors.json" in result
+
+    def test_validation_writes_error_file(self, setup_invalid_config):
+        """Invalid config should produce transformation_errors.json."""
+        tmp_path, case_name = setup_invalid_config
+        tool = ExpectedGeneratorTool()
+
+        original_cwd = os.getcwd()
+        os.chdir(tmp_path)
+        try:
+            tool._run(case_name=case_name)
+        finally:
+            os.chdir(original_cwd)
+
+        error_file = tmp_path / "output" / case_name / "transformation_errors.json"
+        assert error_file.exists()
+        errors = json.loads(error_file.read_text())
+        assert "validation_errors" in errors
+        assert len(errors["validation_errors"]) > 0
+
+    def test_validation_reports_specific_field(self, setup_invalid_config):
+        """Error report should identify which field has the bad config."""
+        tmp_path, case_name = setup_invalid_config
+        tool = ExpectedGeneratorTool()
+
+        original_cwd = os.getcwd()
+        os.chdir(tmp_path)
+        try:
+            result = tool._run(case_name=case_name)
+        finally:
+            os.chdir(original_cwd)
+
+        assert "AREA_CODE" in result
+
+
+class TestValidateRuleConfigAgainstTransformers:
+    """Test the validation utility function directly."""
+
+    def test_valid_rules_return_no_errors(self):
+        from krystal_v4.utils.validation import validate_rule_config_against_transformers
+
+        rules = [
+            {"target_field": "X", "source_field": "Y", "transformation_type": "direct", "config": {"source_field": "Y"}},
+            {"target_field": "A", "source_field": "", "transformation_type": "fixed", "config": {"value": "1"}},
+            {"target_field": "B", "source_field": "Phone", "transformation_type": "phone_parser", "config": {"source_field": "Phone", "part": "area_code"}},
+        ]
+        errors = validate_rule_config_against_transformers(rules)
+        assert errors == []
+
+    def test_invalid_type_returns_error(self):
+        from krystal_v4.utils.validation import validate_rule_config_against_transformers
+
+        rules = [
+            {"target_field": "X", "transformation_type": "nonexistent", "config": {}},
+        ]
+        errors = validate_rule_config_against_transformers(rules)
+        assert len(errors) == 1
+        assert errors[0]["target_field"] == "X"
+
+    def test_invalid_config_returns_error(self):
+        from krystal_v4.utils.validation import validate_rule_config_against_transformers
+
+        rules = [
+            {"target_field": "X", "transformation_type": "split_extract", "config": {"bad_field": "value"}},
+        ]
+        errors = validate_rule_config_against_transformers(rules)
+        assert len(errors) == 1
+
+    def test_source_field_injection(self):
+        """source_field from rule level should be injected into config."""
+        from krystal_v4.utils.validation import validate_rule_config_against_transformers
+
+        rules = [
+            {"target_field": "X", "source_field": "DOB", "transformation_type": "direct", "config": {}},
+        ]
+        errors = validate_rule_config_against_transformers(rules)
+        assert errors == []
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

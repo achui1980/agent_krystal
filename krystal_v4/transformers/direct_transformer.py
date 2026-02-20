@@ -20,6 +20,18 @@ class DirectTransformer(BaseTransformer):
         result = transformer.transform({"DOB": "1960-01-15"})  # Returns "1960-01-15"
     """
 
+    @classmethod
+    def schema(cls) -> Dict[str, Any]:
+        return {
+            "description": "Directly copies a source field value to the target field.",
+            "config": {
+                "source_field": {"type": "str", "required": True, "description": "Name of source field to copy from"},
+            },
+            "examples": [
+                {"config": {"source_field": "DOB"}, "input": {"DOB": "1960-01-15"}, "output": "1960-01-15"},
+            ],
+        }
+
     def validate_config(self) -> None:
         """Validate that 'source_field' is present in config."""
         if "source_field" not in self.config:
