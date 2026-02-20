@@ -99,6 +99,123 @@ class DataGeneratorTool(BaseTool):
 
         return values
 
+    def generate_with_coverage(
+        self,
+        source_fields: List[str],
+        conditional_coverage: Dict[str, List[str]],
+        product_line_mapping: Dict[str, str],
+        field_metadata: Dict[str, Any],
+        record_count: int,
+    ) -> List[Dict[str, Any]]:
+        """
+        Generate source records ensuring conditional coverage and MS product special handling.
+
+        This method ensures:
+        1. All required conditional values are covered (e.g., all Product values)
+        2. MS products (HAP, HUM, HV, RD) have empty Plan_Name
+        3. Non-MS products have Plan_Name in "SXXXX-YYY" format
+
+        Args:
+            source_fields: List of source field names
+            conditional_coverage: Dict mapping field names to required values
+                Example: {"Product": ["PDP", "HAP", "HUM", "HV", "RD", "LPPO"]}
+            product_line_mapping: Dict mapping product values to product lines
+                Example: {"PDP": "MD", "HAP": "MS", "HUM": "MS", ...}
+            field_metadata: Metadata about fields (type hints, formats)
+            record_count: Desired number of records
+
+        Returns:
+            List of source record dictionaries with conditional coverage
+        """
+        import logging
+
+        logger = logging.getLogger(__name__)
+
+        # STEP 1: Validate record count (adjust if needed)
+        total_required = sum(len(values) for values in conditional_coverage.values())
+        if record_count < total_required:
+            logger.warning(
+                f"⚠️  Record count ({record_count}) is less than required for conditional coverage ({total_required}). "
+                f"Auto-adjusting to {total_required} records."
+            )
+            record_count = total_required
+
+        # STEP 2: Generate records with round-robin for conditional fields
+        records = []
+
+        # Identify MS products (products that map to "MS" product line)
+        ms_products = {
+            product for product, line in product_line_mapping.items() if line == "MS"
+        }
+        logger.info(f"🔍 MS Products identified: {ms_products}")
+
+        # Round-robin through conditional values first
+        conditional_field = None
+        required_values = []
+        if conditional_coverage:
+            # Assume single conditional field (typically "Product")
+            conditional_field = list(conditional_coverage.keys())[0]
+            required_values = conditional_coverage[conditional_field]
+            logger.info(
+                f"📋 Conditional coverage for '{conditional_field}': {required_values}"
+            )
+
+        # Generate records ensuring coverage
+        for i in range(record_count):
+            record = {}
+
+            # Generate each field
+            for field in source_fields:
+                # Handle conditional field with round-robin
+                if (
+                    conditional_field
+                    and field == conditional_field
+                    and i < len(required_values)
+                ):
+                    # Round-robin through required values
+                    value = required_values[i]
+                    record[field] = value
+                elif conditional_field and field == conditional_field:
+                    # After covering all required values, generate randomly
+                    value = random.choice(required_values)
+                    record[field] = value
+                else:
+                    # Generate based on field metadata
+                    field_type = field_metadata.get(field, {}).get("type", "string")
+                    format_hint = field_metadata.get(field, {}).get("format")
+                    value = self._generate_single_value(
+                        field, field.lower(), field_type, format_hint
+                    )
+                    record[field] = value
+
+            # STEP 3: Apply MS special handling
+            # If Product maps to MS, clear Plan_Name
+            if "Product" in record and "Plan_Name" in source_fields:
+                product_value = record["Product"]
+                if product_value in ms_products:
+                    record["Plan_Name"] = ""
+                    logger.debug(
+                        f"✅ Record {i + 1}: Product={product_value} → MS → Plan_Name cleared"
+                    )
+                elif not record.get("Plan_Name"):
+                    # Non-MS product should have Plan_Name
+                    contract = f"S{random.randint(1000, 9999)}"
+                    plan = f"{random.randint(100, 999)}"
+                    record["Plan_Name"] = f"{contract}-{plan}"
+
+            records.append(record)
+
+        # STEP 4: Log coverage summary
+        if conditional_field:
+            generated_values = [r.get(conditional_field) for r in records]
+            coverage_summary = {
+                value: generated_values.count(value) for value in required_values
+            }
+            logger.info(f"✅ Conditional coverage summary: {coverage_summary}")
+
+        logger.info(f"✅ Generated {len(records)} records with conditional coverage")
+        return records
+
     def _generate_single_value(
         self,
         field_name: str,
@@ -112,6 +229,7 @@ class DataGeneratorTool(BaseTool):
         if format_hint and "LAST" in format_hint and "FIRST" in format_hint:
             last = self.faker.last_name().upper()
             first = self.faker.first_name().upper()
+            # CRITICAL: No space after comma (matches requirements)
             return f"{last},{first}"
 
         # Member field
@@ -121,7 +239,7 @@ class DataGeneratorTool(BaseTool):
             elif "last" in field_lower:
                 return self.faker.last_name().upper()
             else:
-                # Default to "LAST,FIRST" format
+                # Default to "LAST,FIRST" format (NO space after comma)
                 last = self.faker.last_name().upper()
                 first = self.faker.first_name().upper()
                 return f"{last},{first}"
@@ -139,6 +257,85 @@ class DataGeneratorTool(BaseTool):
             letters = "".join(random.choices("ABCDEFGHIJKLMNOPQRSTUVWXYZ", k=6))
             numbers = "".join(random.choices("0123456789", k=5))
             return f"{numbers[0]}{letters[0:2]}{numbers[1]}{letters[2:4]}{numbers[2]}{letters[4:6]}{numbers[3:5]}"
+
+        # Address field
+        if "address" in field_lower or "addr" in field_lower:
+            return self.faker.street_address().upper()
+
+        # City field
+        if field_lower in ("city",) or field_lower == "city":
+            return self.faker.city().upper()
+
+        # State field
+        if field_lower in ("state",) or field_lower == "state":
+            return self.faker.state_abbr()
+
+        # Zip/Postal code field
+        if "zip" in field_lower or "postal" in field_lower:
+            return self.faker.postcode()[:5]
+
+        # Phone field
+        if "phone" in field_lower or "fax" in field_lower:
+            area = str(random.randint(200, 999))
+            prefix = str(random.randint(200, 999))
+            line = str(random.randint(1000, 9999))
+            return f"{area}-{prefix}-{line}"
+
+        # Email field
+        if "email" in field_lower:
+            return self.faker.email()
+
+        # SAN / NPN / numeric ID fields
+        if field_lower in ("san", "aor_san", "npn"):
+            return str(random.randint(1000000, 9999999))
+
+        # Agent / AOR_Name (person name fields)
+        if field_lower in ("agent", "aor_name"):
+            last = self.faker.last_name().upper()
+            first = self.faker.first_name().upper()
+            return f"{last}, {first}"
+
+        # UMID field
+        if "umid" in field_lower:
+            letter = random.choice("ABCDEFGH")
+            num = random.randint(10000000, 99999999)
+            return f"{letter}{num}"
+
+        # Signature date / Eff_Date / Term_Date
+        if field_lower in ("signature_date", "eff_date", "term_date"):
+            return self.faker.date_between(start_date="-2y", end_date="today").strftime(
+                "%Y-%m-%d"
+            )
+
+        # Solar Group Number
+        if "solar" in field_lower or "group" in field_lower:
+            return f"{random.randint(10000000, 99999999)}K"
+
+        # Policy Indicator
+        if "policy_indicator" in field_lower:
+            return random.choice(["Active", "Termed"])
+
+        # LIS Indicator
+        if "lis" in field_lower and "indicator" in field_lower:
+            return random.choice(["Y", "N"])
+
+        # New_P2P
+        if "p2p" in field_lower or "new_p2p" in field_lower:
+            return random.choice(["New", ""])
+
+        # DOC_ID
+        if "doc_id" in field_lower:
+            return str(random.randint(100000000, 999999999))
+
+        # EndReasonCd / EndReasonCodeDescription
+        if "endreason" in field_lower:
+            if "description" in field_lower:
+                return random.choice(["", "FREE LOOK PERIOD(MES/MCD)", "PREFERS/ENROLLED IN OTHER HUMANA PLAN"])
+            return random.choice(["", "001", "928"])
+
+        # Monthly premium
+        if "premium" in field_lower:
+            return f"{random.uniform(20, 200):.2f}"
 
         # Product field
         if "product" in field_lower and "line" not in field_lower:

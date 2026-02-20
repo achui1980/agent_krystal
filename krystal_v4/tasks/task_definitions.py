@@ -9,7 +9,8 @@ from typing import List
 
 
 def create_analyze_rules_task(
-    agent: Agent, rules_file: str, case_name: str, case_dir: str, tools: List
+    agent: Agent, rules_file: str, case_name: str, case_dir: str, tools: List,
+    parsed_rules: dict = None,
 ) -> Task:
     """
     Create task for analyzing rules and generating configuration.
@@ -20,56 +21,81 @@ def create_analyze_rules_task(
         case_name: Test case identifier
         case_dir: Directory containing reference files
         tools: List of tools for the agent
+        parsed_rules: Pre-parsed rules data (target_fields, source_fields, fixed_values, special_rules_rows)
 
     Returns:
         Configured Task instance
     """
+    import json as _json
+
+    # Build pre-parsed data section
+    pre_parsed_section = ""
+    if parsed_rules:
+        target_fields_str = _json.dumps(parsed_rules["target_fields"], indent=2)
+        source_fields_str = _json.dumps(parsed_rules["source_fields"])
+        fixed_values_str = _json.dumps(parsed_rules["fixed_values"], indent=2)
+        special_rules_str = _json.dumps(parsed_rules["special_rules_rows"], indent=2, ensure_ascii=False)
+
+        source_format = parsed_rules.get("source_format", "csv_quoted")
+        output_metadata_str = _json.dumps(parsed_rules.get("output_metadata", {}), indent=2)
+
+        pre_parsed_section = (
+            f"**PRE-PARSED DATA (use these EXACTLY, do NOT modify):**\n\n"
+            f"source_format: \"{source_format}\"\n\n"
+            f"source_fields (EXACT list, do NOT add or remove):\n{source_fields_str}\n\n"
+            f"target_fields (EXACT list of {len(parsed_rules['target_fields'])} fields, do NOT add or remove):\n{target_fields_str}\n\n"
+            f"fixed_values (EXACT values, do NOT change):\n{fixed_values_str}\n\n"
+            f"output_metadata (EXACT values):\n{output_metadata_str}\n\n"
+            f"**YOUR TASK: Analyze ONLY these SPECIAL_RULES rows to create transformation_rules:**\n{special_rules_str}\n\n"
+        )
+
     return Task(
         description=(
-            f"Analyze the ETL transformation rules file and create a structured configuration.\n\n"
-            f"**Input file**: {rules_file}\n"
-            f"**Case name**: {case_name}\n"
-            f"**Reference directory**: {case_dir}\n\n"
-            f"**Steps to complete**:\n"
-            f"1. Read the rules CSV file using CSVReaderTool\n"
-            f"2. Identify source fields from CARRIER_COLUMN_NAME column (skip if empty or contains DEFAULT value)\n"
-            f"3. Identify target fields from CS_COLUMN_NAME column\n"
-            f"4. For each rule, determine transformation type:\n"
-            f"   - If DEFAULT column has value and CARRIER_COLUMN_NAME is empty → **fixed** transformation\n"
-            f"   - If SPECIAL_RULES is empty and CARRIER_COLUMN_NAME exists → **direct** transformation\n"
-            f"   - If SPECIAL_RULES mentions 'map', 'if', 'condition' → **conditional_map**\n"
-            f"   - If SPECIAL_RULES mentions 'last_name, first_name' or name format → **name_parser**\n"
-            f"   - If SPECIAL_RULES mentions 'split', 'extract', 'before', 'after' → **split_extract**\n"
-            f"   - If both CARRIER_COLUMN_NAME and DEFAULT are empty → **empty**\n"
-            f"5. Extract configuration parameters for each transformation type\n"
-            f"6. Detect source format by checking reference files in {case_dir} (if exists) using FormatDetectorTool\n"
-            f"7. Build field_metadata with format hints (e.g., Member → 'LAST,FIRST')\n"
-            f"8. Create rule_config.json with structure:\n"
-            f"   - case_name: {case_name}\n"
-            f"   - source_format: detected format\n"
-            f"   - source_fields: list of unique source fields\n"
-            f"   - target_fields: list of target fields in order\n"
-            f"   - transformation_rules: list of rules with type and config\n"
-            f"   - field_metadata: list of field metadata for data generation\n"
-            f"   - record_count: 10 (default)\n"
-            f"   - output_metadata: ACTION_ID, SERVICE_MAP_ID\n\n"
-            f"9. Save the configuration to output/{case_name}/rule_config.json using JSONWriterTool\n\n"
-            f"**Important**: If you cannot parse a SPECIAL_RULES entry, stop and ask the user for guidance."
+            f"Analyze ETL transformation rules and create structured configuration.\n\n"
+            f"**Input**: {rules_file}\n"
+            f"**Output**: output/{case_name}/rule_config.json\n\n"
+            f"{pre_parsed_section}"
+            f"**YOUR ONLY JOB**: For each special_rules row, determine the transformation type:\n"
+            f"  - **direct**: SPECIAL_RULES is empty → simple field mapping\n"
+            f"  - **conditional_map**: SPECIAL_RULES contains 'if...map to' → create mappings dict\n"
+            f"  - **name_parser**: SPECIAL_RULES mentions 'last_name, first_name' → parse name parts\n"
+            f"  - **split_extract**: SPECIAL_RULES mentions 'separated by' or '-' split → extract part\n\n"
+            f"**transformation_rules format**: Each rule must have:\n"
+            f"  - target_field: the CS_COLUMN_NAME\n"
+            f"  - source_field: the CARRIER_COLUMN_NAME\n"
+            f"  - transformation_type: one of direct/conditional_map/name_parser/split_extract\n"
+            f"  - config: type-specific config dict\n\n"
+            f"**For conditional_map**, also create:\n"
+            f"  - conditional_coverage: {{source_field: [all_possible_values]}}\n"
+            f"    For 'all others'/'default' cases, use 'LPPO' as the representative value\n"
+            f"  - product_line_mapping: {{source_value: target_value}}\n\n"
+            f"**Build the final JSON** with ALL of these keys:\n"
+            f"  source_format, source_fields, target_fields, fixed_values, transformation_rules,\n"
+            f"  conditional_coverage, product_line_mapping, field_metadata, output_metadata\n\n"
+            f"⚠️ **MANDATORY**: You MUST call the JSONWriterTool to write the JSON file to disk.\n"
+            f"Do NOT just return JSON text. The file MUST exist at output/{case_name}/rule_config.json.\n"
+            f"Call: json_writer(file_path='output/{case_name}/rule_config.json', data=<json_string>)"
         ),
         expected_output=(
             f"A JSON configuration file saved to output/{case_name}/rule_config.json containing:\n"
-            f"- Complete list of transformation rules with types and configurations\n"
-            f"- Source and target field mappings\n"
-            f"- Detected source format\n"
-            f"- Field metadata for data generation\n"
-            f"- Output metadata for file headers"
+            f"- source_fields: EXACT list from pre-parsed data\n"
+            f"- target_fields: EXACT {len(parsed_rules['target_fields']) if parsed_rules else '~93'} fields from pre-parsed data\n"
+            f"- fixed_values: EXACT values from pre-parsed data\n"
+            f"- transformation_rules: Type A transformations with correct types\n"
+            f"- conditional_coverage: Required test values for conditional fields\n"
+            f"- product_line_mapping: Product → PRODUCT_LINE mapping\n"
+            f"- field_metadata: Format hints for data generation\n"
+            f"- output_metadata: ACTION_ID, SERVICE_MAP_ID"
         ),
         agent=agent,
         tools=tools,
     )
 
 
-def create_generate_source_task(agent: Agent, case_name: str, tools: List) -> Task:
+def create_generate_source_task(
+    agent: Agent, case_name: str, tools: List,
+    record_count: int = 10, source_format: str = "csv_quoted",
+) -> Task:
     """
     Create task for generating source test data.
 
@@ -77,47 +103,58 @@ def create_generate_source_task(agent: Agent, case_name: str, tools: List) -> Ta
         agent: Source Generator Agent
         case_name: Test case identifier
         tools: List of tools for the agent
+        record_count: Number of records to generate
+        source_format: Detected source file format (csv_quoted, pipe, comma)
 
     Returns:
         Configured Task instance
     """
     return Task(
         description=(
-            f"Generate realistic test source data based on rule configuration.\n\n"
-            f"**Input file**: output/{case_name}/rule_config.json\n"
-            f"**Output file**: output/{case_name}/generated_source.txt\n\n"
-            f"**Steps to complete**:\n"
-            f"1. Read rule_config.json to understand:\n"
-            f"   - source_fields: what fields to generate\n"
-            f"   - source_format: what delimiter to use (csv_quoted, pipe, comma)\n"
-            f"   - record_count: how many records to generate (default 10)\n"
-            f"   - field_metadata: format hints for each field\n\n"
-            f"2. For each source field, generate realistic test data using DataGeneratorTool:\n"
-            f"   - Use field name and format_hint to guide generation\n"
-            f"   - Generate record_count values for each field\n"
-            f"   - Ensure data follows realistic patterns (e.g., dates, names, IDs)\n\n"
-            f"3. Construct data records as list of dictionaries\n\n"
-            f"4. Write data to generated_source.txt using FileWriterTool:\n"
-            f"   - If source_format is 'csv_quoted': use CSV with quoted fields\n"
-            f"   - If source_format is 'pipe': use pipe delimiters (|)\n"
-            f"   - If source_format is 'comma': use comma delimiters\n"
-            f"   - Include header row with field names\n\n"
-            f"**Example output format (CSV quoted)**:\n"
-            f"```\n"
-            f'"Member","Product","DOB","MEDICARE_ID","Plan_Name"\n'
-            f'"MOUSE,MICKEY","PDP","1960-01-15","1AB2CD3EF45","S5884-197"\n'
-            f"```\n\n"
-            f"**Example output format (pipe-delimited)**:\n"
-            f"```\n"
-            f"Member|Product|DOB|MEDICARE_ID|Plan_Name\n"
-            f"MOUSE,MICKEY|PDP|1960-01-15|1AB2CD3EF45|S5884-197\n"
-            f"```"
+            f"Generate realistic test source data with FULL conditional branch coverage.\n\n"
+            f"**Input**: output/{case_name}/rule_config.json\n"
+            f"**Output**: output/{case_name}/generated_source.txt\n\n"
+            f"**PRE-SET PARAMETERS:**\n"
+            f"  record_count: {record_count}\n"
+            f"  source_format: {source_format}\n\n"
+            f"**CRITICAL: Read Configuration from rule_config.json**\n"
+            f"1. source_fields: which fields to include\n"
+            f"2. conditional_coverage: which values MUST appear (e.g., Product)\n"
+            f"3. product_line_mapping: Product → PRODUCT_LINE (for MS detection)\n\n"
+            f"**STEP 1: Validate Record Count** ⚠️\n"
+            f"Total records to generate: {record_count}\n"
+            f"If conditional_coverage has more required values than {record_count},\n"
+            f"increase to cover all values.\n\n"
+            f"**STEP 2: Generate with Conditional Coverage** 🎯\n"
+            f"For fields WITH conditional_coverage:\n"
+            f"  Round-robin through required values first, then random for remaining.\n\n"
+            f"**STEP 3: Field-Specific Generation** 📝\n\n"
+            f"🔹 **Member**: 'LASTNAME,FIRSTNAME' (NO space after comma)\n"
+            f"   Example: 'MOUSE,MICKEY'\n\n"
+            f"🔹 **DOB**: 'YYYY-MM-DD', age 65-90\n\n"
+            f"🔹 **Product**: Use conditional_coverage values\n\n"
+            f"🔹 **Plan_Name**: ⚠️ MS SPECIAL HANDLING\n"
+            f"   If product maps to MS: Plan_Name = '' (EMPTY)\n"
+            f"   Else: Plan_Name = 'SXXXX-YYY' format\n\n"
+            f"🔹 **Address/City/State/Zip**: Use realistic values\n"
+            f"🔹 **MEDICARE_ID**: Mix of digits/letters (e.g., 1AB2CD3EF45)\n\n"
+            f"**STEP 4: Write Output** 💾\n"
+            f"Format: **{source_format}**\n"
+            f"{'⚠️ csv_quoted means ALL fields must be wrapped in double quotes!' if source_format == 'csv_quoted' else ''}\n"
+            f"{'Example: ' + chr(34) + 'PDP' + chr(34) + ',' + chr(34) + 'MOUSE,MICKEY' + chr(34) + ',...' if source_format == 'csv_quoted' else ''}\n"
+            f"This is CRITICAL because fields like Member contain commas (LAST,FIRST).\n\n"
+            f"⚠️ **MANDATORY**: You MUST call the FileWriterTool to write the file to disk.\n"
+            f"Do NOT just return CSV data as text. The file MUST exist on disk after this task.\n"
+            f"Call: file_writer(file_path='output/{case_name}/generated_source.txt', data=<csv_string>)"
         ),
         expected_output=(
             f"A source data file saved to output/{case_name}/generated_source.txt containing:\n"
+            f"- {record_count} records (or more if needed for conditional coverage)\n"
+            f"- Format: {source_format} (all fields quoted if csv_quoted)\n"
             f"- Header row with source field names\n"
-            f"- Generated test records in the correct format\n"
-            f"- Realistic data values following field-specific patterns"
+            f"- ALL conditional values covered\n"
+            f"- MS products with empty Plan_Name\n"
+            f"- Non-MS products with Plan_Name in 'SXXXX-YYY' format"
         ),
         agent=agent,
         tools=tools,
@@ -138,49 +175,20 @@ def create_generate_expected_task(agent: Agent, case_name: str, tools: List) -> 
     """
     return Task(
         description=(
-            f"Apply transformation rules to generate expected output data.\n\n"
-            f"**Input files**:\n"
-            f"- output/{case_name}/rule_config.json (transformation rules)\n"
-            f"- output/{case_name}/generated_source.txt (source data)\n\n"
-            f"**Output file**: output/{case_name}/generated_expected.txt\n\n"
-            f"**Steps to complete**:\n"
-            f"1. Read rule_config.json to get:\n"
-            f"   - transformation_rules: list of transformation rules to apply\n"
-            f"   - target_fields: expected output field names (in order)\n"
-            f"   - output_metadata: metadata for file header\n\n"
-            f"2. Read generated_source.txt in the correct format (using source_format from config)\n"
-            f"   - Parse as CSV or pipe-delimited based on detected format\n"
-            f"   - Load all source records into memory\n\n"
-            f"3. For each source record, apply ALL transformation rules:\n"
-            f"   - Use TransformationExecutorTool.apply_multiple_transformations()\n"
-            f"   - Pass source_record and transformation_rules list\n"
-            f"   - This will return a dictionary with target field values\n\n"
-            f"4. Collect all transformed records\n\n"
-            f"5. Generate timestamp token: generated_YYYYMMDD_HHMMSS\n\n"
-            f"6. Write output file in pipe-delimited format using FileWriterTool.write_pipe_delimited():\n"
-            f"   - Add metadata header:\n"
-            f"     ACTION_ID:{case_name}-cs-data-integration\n"
-            f"     SERVICE_MAP_ID:10003358\n"
-            f"     SOURCE_TOKEN:generated_YYYYMMDD_HHMMSS\n"
-            f"   - Blank line\n"
-            f"   - Header row with target_fields (pipe-delimited)\n"
-            f"   - Data rows (pipe-delimited)\n\n"
-            f"**Example output format**:\n"
-            f"```\n"
-            f"ACTION_ID:{case_name}-cs-data-integration\n"
-            f"SERVICE_MAP_ID:10003358\n"
-            f"SOURCE_TOKEN:generated_20260209_143045\n"
-            f"\n"
-            f"FIRST_NAME|LAST_NAME|PRODUCT_LINE|DOB|CMS_CONTRACT_ID\n"
-            f"MICKEY|MOUSE|MD|1960-01-15|S5884\n"
-            f"```"
+            f"Generate the expected output file by calling the Expected Output Generator tool.\n\n"
+            f"**YOUR ONLY JOB**: Call the 'Expected Output Generator' tool with case_name='{case_name}'.\n"
+            f"This tool will automatically:\n"
+            f"1. Read output/{case_name}/rule_config.json\n"
+            f"2. Read output/{case_name}/generated_source.txt\n"
+            f"3. Apply ALL transformation rules to each source record\n"
+            f"4. Fill fixed values (CARRIER_FAMILY_ID, IS_PAID, etc.)\n"
+            f"5. Write output/{case_name}/generated_expected.txt with metadata header\n\n"
+            f"⚠️ **MANDATORY**: You MUST call the tool. Do NOT try to do transformations manually.\n"
+            f"Call: expected_output_generator(case_name='{case_name}')"
         ),
         expected_output=(
-            f"An expected output file saved to output/{case_name}/generated_expected.txt containing:\n"
-            f"- Metadata header (ACTION_ID, SERVICE_MAP_ID, SOURCE_TOKEN)\n"
-            f"- Pipe-delimited header row with target field names\n"
-            f"- Transformed data rows in pipe-delimited format\n"
-            f"- All transformations correctly applied to each record"
+            f"The expected output file generated at output/{case_name}/generated_expected.txt "
+            f"with metadata header, pipe-delimited header row, and transformed data rows."
         ),
         agent=agent,
         tools=tools,

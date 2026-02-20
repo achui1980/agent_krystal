@@ -44,21 +44,27 @@ class SplitTransformer(BaseTransformer):
             source_record: Source record dictionary
 
         Returns:
-            Extracted element or None if index out of bounds
+            Extracted element or empty string if source is empty
         """
         source_field = self.config["source_field"]
         delimiter = self.config["delimiter"]
         index = self.config["index"]
 
         source_value = source_record.get(source_field)
-        if not source_value:
-            return None
+
+        # CRITICAL: Handle empty/None values (e.g., MS products with empty Plan_Name)
+        if source_value is None:
+            return ""
+
+        source_value_str = str(source_value).strip()
+        if not source_value_str:
+            return ""
 
         # Split and extract
-        parts = str(source_value).split(delimiter)
+        parts = source_value_str.split(delimiter)
 
         # Handle negative indices
         try:
             return parts[index].strip()
         except IndexError:
-            return None
+            return ""

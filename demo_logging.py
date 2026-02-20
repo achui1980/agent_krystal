@@ -48,13 +48,13 @@ with tempfile.TemporaryDirectory() as tmpdir:
 
     logger.log_test_start(
         "智能Case生成",
-        rules_file="case/rules.xlsx",
+        rules_file="case/rules.csv",
         source_template="case/source.csv",
         expected_template="case/expected.txt",
     )
 
     # 记录各步骤
-    logger.log_step("规则解析", "开始", file="case/rules.xlsx")
+    logger.log_step("规则解析", "开始", file="case/rules.csv")
     logger.info("   读取了 92 条规则")
     logger.info("   字段映射: 15 个字段已识别")
     logger.log_step("规则解析", "完成", duration=0.5)

@@ -1,16 +1,20 @@
 """
 Structured logging utility for Krystal V4.
 Provides INFO-level logging with clear visual formatting.
+Logs to both console (stdout) and file (logs/ directory).
 """
 
 import logging
 import sys
+from datetime import datetime
+from pathlib import Path
 from typing import Optional
 
 
 def setup_logger(name: str = "krystal_v4", level: int = logging.INFO) -> logging.Logger:
     """
     Setup structured logger with INFO level.
+    Outputs to both console and log file.
 
     Args:
         name: Logger name
@@ -26,17 +30,31 @@ def setup_logger(name: str = "krystal_v4", level: int = logging.INFO) -> logging
     if logger.handlers:
         logger.handlers.clear()
 
-    # Create console handler with formatting
-    handler = logging.StreamHandler(sys.stdout)
-    handler.setLevel(level)
-
     # Format: [INFO] 2025-02-09 14:30:45 - Message
     formatter = logging.Formatter(
         fmt="[%(levelname)s] %(asctime)s - %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
     )
-    handler.setFormatter(formatter)
 
-    logger.addHandler(handler)
+    # Console handler
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setLevel(level)
+    console_handler.setFormatter(formatter)
+    logger.addHandler(console_handler)
+
+    # File handler - logs/krystal_YYYYMMDD_HHMMSS.log
+    log_dir = Path("logs")
+    log_dir.mkdir(exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    log_file = log_dir / f"krystal_{timestamp}.log"
+
+    file_handler = logging.FileHandler(str(log_file), encoding="utf-8")
+    file_handler.setLevel(level)
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
+
+    # Store log file path on logger for external access
+    logger.log_file = str(log_file)
+
     logger.propagate = False
 
     return logger

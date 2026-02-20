@@ -60,19 +60,42 @@ class RuleConfig(BaseModel):
     source_format: str = Field(
         description="Detected source format: csv_quoted, pipe, comma"
     )
+
+    # Three types of fields (clearly separated)
     source_fields: List[str] = Field(
-        description="List of source field names (from CARRIER_COLUMN_NAME)"
+        description="List of source field names (non-empty CARRIER_COLUMN_NAME, deduplicated)"
     )
     target_fields: List[str] = Field(
-        description="List of target field names (from CS_COLUMN_NAME)"
+        description="All CS_COLUMN_NAME fields in order (for expected file output)"
     )
+    fixed_values: Dict[str, str] = Field(
+        default_factory=dict,
+        description="Fixed values for Type B fields: {CS_COLUMN_NAME: DEFAULT} where CARRIER_COLUMN_NAME is empty",
+    )
+
+    # Transformation rules (only Type A - fields with source mapping)
     transformation_rules: List[TransformationRule] = Field(
-        description="List of transformation rules"
+        description="List of transformation rules (Type A fields only)"
     )
+
+    # Field metadata for data generation
     field_metadata: List[FieldMetadata] = Field(
         default_factory=list,
         description="Metadata for source fields (for data generation)",
     )
+
+    # Conditional coverage information (NEW)
+    conditional_coverage: Dict[str, List[str]] = Field(
+        default_factory=dict,
+        description="Required values for conditional fields: {source_field: [required_values]}",
+    )
+
+    # Product line mapping for MS special handling (NEW)
+    product_line_mapping: Dict[str, str] = Field(
+        default_factory=dict,
+        description="Product to PRODUCT_LINE mapping: {product_value: product_line} for MS detection",
+    )
+
     record_count: int = Field(default=10, description="Number of records to generate")
     output_metadata: Dict[str, str] = Field(
         default_factory=dict, description="Metadata for expected file header"
@@ -91,17 +114,28 @@ class RuleConfig(BaseModel):
                     "Plan_Name",
                 ],
                 "target_fields": [
+                    "CARRIER_STATUS_MAP",
+                    "CARRIER_FAMILY_ID",
+                    "PARENT_CARRIER_ID",
+                    "IS_PAID",
                     "FIRST_NAME",
                     "LAST_NAME",
                     "PRODUCT_LINE",
-                    "DOB",
-                    "CMS_CONTRACT_ID",
                 ],
+                "fixed_values": {
+                    "CARRIER_FAMILY_ID": "66,175,206",
+                    "IS_PAID": "1",
+                    "BUSINESS_LINE": "2",
+                    "MEMBER_NUMBER": "1",
+                    "CATEGORY_CLASS_ID": "1",
+                    "ADDRESS_TYPE": "HOME",
+                    "PHONE_TYPE": "HOME",
+                },
                 "transformation_rules": [
                     {
                         "target_field": "FIRST_NAME",
                         "transformation_type": "name_parser",
-                        "config": {"source_field": "Member", "part": "first"},
+                        "config": {"source_field": "Member", "extract_part": "first"},
                         "csds_flag": 1,
                         "source_field": "Member",
                         "special_rules": "Member format: last_name, first_name",
@@ -114,6 +148,17 @@ class RuleConfig(BaseModel):
                         "format_hint": "LAST,FIRST",
                     }
                 ],
+                "conditional_coverage": {
+                    "Product": ["PDP", "HAP", "HUM", "HV", "RD", "LPPO"]
+                },
+                "product_line_mapping": {
+                    "PDP": "MD",
+                    "HAP": "MS",
+                    "HUM": "MS",
+                    "HV": "MS",
+                    "RD": "MS",
+                    "LPPO": "MA/MAPD",
+                },
                 "record_count": 10,
                 "output_metadata": {
                     "ACTION_ID": "humanaS10-cs-data-integration",

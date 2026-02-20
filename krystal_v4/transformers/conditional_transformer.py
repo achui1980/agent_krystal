@@ -31,6 +31,20 @@ class ConditionalTransformer(BaseTransformer):
         result = transformer.transform({"Product": "PDP"})  # Returns "MD"
     """
 
+    def __init__(self, config: Dict[str, Any]):
+        """
+        Initialize and normalize mappings by trimming whitespace.
+
+        Args:
+            config: Transformer configuration
+        """
+        super().__init__(config)
+        # CRITICAL: Trim all mapping keys and values to avoid " HUM" != "HUM" issues
+        raw_mappings = self.config.get("mappings", {})
+        self.normalized_mappings = {
+            str(k).strip(): str(v).strip() for k, v in raw_mappings.items()
+        }
+
     def validate_config(self) -> None:
         """Validate configuration."""
         if "source_field" not in self.config:
@@ -53,21 +67,23 @@ class ConditionalTransformer(BaseTransformer):
             Mapped value or default value
         """
         source_field = self.config["source_field"]
-        mappings = self.config["mappings"]
         default = self.config.get("default")
 
         source_value = source_record.get(source_field)
         if source_value is None:
             return default
 
-        # Check for exact match
-        if source_value in mappings:
-            return mappings[source_value]
+        # CRITICAL: Trim source value before lookup to avoid whitespace mismatch
+        source_value_trimmed = str(source_value).strip()
+
+        # Check for exact match in normalized mappings
+        if source_value_trimmed in self.normalized_mappings:
+            return self.normalized_mappings[source_value_trimmed]
 
         # Check for case-insensitive match
-        source_value_upper = str(source_value).upper()
-        for key, value in mappings.items():
-            if str(key).upper() == source_value_upper:
+        source_value_upper = source_value_trimmed.upper()
+        for key, value in self.normalized_mappings.items():
+            if key.upper() == source_value_upper:
                 return value
 
         # Return default if no match

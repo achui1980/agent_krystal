@@ -7,7 +7,7 @@ import sys
 import os
 from pathlib import Path
 from dotenv import load_dotenv
-from langchain_openai import ChatOpenAI
+from crewai import LLM
 from krystal_v4.crew import KrystalV4Crew
 from krystal_v4.utils.logger import logger
 from krystal_v4.utils.error_handler import handle_error_gracefully, UserAbortError
@@ -146,11 +146,8 @@ def main():
     logger.info("")
 
     try:
-        # Initialize LLM with custom configuration
-        llm = ChatOpenAI(
-            model=args.model,
-            temperature=args.temperature
-        )
+        # Initialize LLM with custom configuration using CrewAI's LLM class
+        llm = LLM(model=f"openai/{args.model}", temperature=args.temperature)
 
         # Create and run crew
         crew = KrystalV4Crew(

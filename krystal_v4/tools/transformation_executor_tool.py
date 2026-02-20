@@ -14,43 +14,67 @@ class TransformationExecutorInput(BaseModel):
 
     source_record: str = Field(description="Source record as JSON string")
     transformation_type: str = Field(
-        description="Transformation type (fixed, direct, etc.)"
+        default="",
+        description="Transformation type for single mode (fixed, direct, etc.). Leave empty for batch mode."
     )
-    config: str = Field(description="Transformation config as JSON string")
+    config: str = Field(
+        default="",
+        description="For single mode: transformation config as JSON string. For batch mode: JSON array of rules, each with target_field, transformation_type, config."
+    )
+    batch_rules: str = Field(
+        default="",
+        description="JSON array of transformation rules for batch mode. Each rule: {target_field, transformation_type, config}. When provided, processes ALL rules in one call and returns JSON result."
+    )
 
 
 class TransformationExecutorTool(BaseTool):
     name: str = "Transformation Executor"
     description: str = (
-        "Executes a single transformation rule on a source record. "
-        "Uses the transformer registry to apply the specified transformation. "
-        "Input: source_record (JSON string), transformation_type (string), config (JSON string)"
+        "Executes transformation rules on a source record. "
+        "Supports BATCH MODE (recommended): pass source_record + batch_rules (JSON array of {target_field, transformation_type, config}). "
+        "Returns JSON dict of all transformed values in one call. "
+        "Also supports single mode: pass source_record + transformation_type + config."
     )
     args_schema: type[BaseModel] = TransformationExecutorInput
 
-    def _run(self, source_record: str, transformation_type: str, config: str) -> str:
+    def _run(
+        self,
+        source_record: str,
+        transformation_type: str = "",
+        config: str = "",
+        batch_rules: str = "",
+    ) -> str:
         """
-        Execute transformation on source record.
-
-        Args:
-            source_record: Source record as JSON string
-            transformation_type: Transformation type
-            config: Configuration as JSON string
-
-        Returns:
-            Transformed value or error message
+        Execute transformation(s) on source record.
+        Supports batch mode (batch_rules) and single mode (transformation_type + config).
         """
         try:
             import json
 
-            # Parse inputs
             record = json.loads(source_record)
-            config_dict = json.loads(config)
 
-            # Execute transformation
-            result = self.apply_transformation(record, transformation_type, config_dict)
+            # Batch mode: process all rules at once
+            if batch_rules:
+                rules = json.loads(batch_rules)
+                result = {}
+                for rule in rules:
+                    t_field = rule.get("target_field", "")
+                    t_type = rule.get("transformation_type", "")
+                    t_config = rule.get("config", {})
+                    try:
+                        value = self.apply_transformation(record, t_type, t_config)
+                        result[t_field] = value
+                    except Exception as e:
+                        result[t_field] = f"ERROR: {str(e)}"
+                return json.dumps(result, ensure_ascii=False)
 
-            return f"Transformation result: {result}"
+            # Single mode (backward compatible)
+            if transformation_type and config:
+                config_dict = json.loads(config)
+                result = self.apply_transformation(record, transformation_type, config_dict)
+                return f"Transformation result: {result}"
+
+            return "ERROR: Provide either batch_rules or (transformation_type + config)"
 
         except Exception as e:
             return f"ERROR executing transformation: {str(e)}"

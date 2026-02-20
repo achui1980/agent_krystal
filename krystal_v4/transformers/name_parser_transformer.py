@@ -49,6 +49,11 @@ class NameParserTransformer(BaseTransformer):
         if not name_value:
             return None
 
+        # CRITICAL: Trim whitespace from source value
+        name_value = str(name_value).strip()
+        if not name_value:
+            return None
+
         # Handle "LAST,FIRST" format
         if "," in name_value:
             parts = name_value.split(",", 1)
