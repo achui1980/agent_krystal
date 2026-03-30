@@ -1,0 +1,16 @@
+CSDS_FLAG,CS_COLUMN_NAME,CARRIER_COLUMN_NAME,DEFAULT,SPECIAL_RULES,NOTE
+1,EMPLOYEE_ID,Employee_ID,,,Direct copy from source
+1,FIRST_NAME,Full_Name,,Extract first name from 'LAST_COMMA_FIRST' format,e.g. "SMITH,JOHN" -> "JOHN"
+1,LAST_NAME,Full_Name,,Extract last name from 'LAST_COMMA_FIRST' format,e.g. "SMITH,JOHN" -> "SMITH"
+1,DATE_OF_BIRTH,DOB,,,Date field YYYY-MM-DD
+1,STATUS,Status_Code,,Map: A=Active B=Inactive T=Terminated,Conditional mapping
+0,COMPANY_NAME,,ACME Corp,,Fixed value
+1,DEPARTMENT,Dept_Code-Division,,Extract text before '-',e.g. "SALES-WEST" -> "SALES"
+1,DIVISION,Dept_Code-Division,,Extract text after '-',e.g. "SALES-WEST" -> "WEST"
+0,REGION,,NORTH,,Fixed value
+1,PHONE_AREA,Phone,,Extract area code (first 3 digits),Remove special chars first
+1,PHONE_NUMBER,Phone,,Extract phone number (digits after area code) format nnn-nnnn,Remove special chars first
+1,EMAIL,Email,,,Direct copy
+0,CREATED_DATE,,,,Always empty
+0,NOTES,,,,Always empty
+1,ZIP_CODE,Address_Full,,Extract first 5 characters from left,e.g. "90210-1234" -> "90210"

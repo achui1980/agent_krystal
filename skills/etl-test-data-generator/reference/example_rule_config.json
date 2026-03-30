@@ -1,0 +1,115 @@
+{
+  "case_name": "example_test",
+  "source_format": "pipe",
+  "source_fields": ["Employee_ID", "Full_Name", "DOB", "Status_Code", "Dept_Code", "Phone", "Email", "Address_Full"],
+  "target_fields": [
+    "EMPLOYEE_ID", "FIRST_NAME", "LAST_NAME", "DATE_OF_BIRTH",
+    "STATUS", "COMPANY_NAME", "DEPARTMENT", "DIVISION",
+    "REGION", "PHONE_AREA", "PHONE_NUMBER", "EMAIL",
+    "CREATED_DATE", "NOTES", "ZIP_CODE"
+  ],
+  "fixed_values": {
+    "COMPANY_NAME": "ACME Corp",
+    "REGION": "NORTH"
+  },
+  "transformation_rules": [
+    {
+      "target_field": "EMPLOYEE_ID",
+      "source_field": "Employee_ID",
+      "transformation_type": "direct",
+      "config": {"source_field": "Employee_ID"}
+    },
+    {
+      "target_field": "FIRST_NAME",
+      "source_field": "Full_Name",
+      "transformation_type": "name_parser",
+      "config": {"source_field": "Full_Name", "part": "first"}
+    },
+    {
+      "target_field": "LAST_NAME",
+      "source_field": "Full_Name",
+      "transformation_type": "name_parser",
+      "config": {"source_field": "Full_Name", "part": "last"}
+    },
+    {
+      "target_field": "DATE_OF_BIRTH",
+      "source_field": "DOB",
+      "transformation_type": "direct",
+      "config": {"source_field": "DOB"}
+    },
+    {
+      "target_field": "STATUS",
+      "source_field": "Status_Code",
+      "transformation_type": "conditional_map",
+      "config": {
+        "source_field": "Status_Code",
+        "mappings": {"A": "Active", "B": "Inactive", "T": "Terminated"},
+        "default": "Unknown"
+      }
+    },
+    {
+      "target_field": "DEPARTMENT",
+      "source_field": "Dept_Code",
+      "transformation_type": "split_extract",
+      "config": {"source_field": "Dept_Code", "delimiter": "-", "index": 0}
+    },
+    {
+      "target_field": "DIVISION",
+      "source_field": "Dept_Code",
+      "transformation_type": "split_extract",
+      "config": {"source_field": "Dept_Code", "delimiter": "-", "index": 1}
+    },
+    {
+      "target_field": "PHONE_AREA",
+      "source_field": "Phone",
+      "transformation_type": "phone_parser",
+      "config": {"source_field": "Phone", "part": "area_code"}
+    },
+    {
+      "target_field": "PHONE_NUMBER",
+      "source_field": "Phone",
+      "transformation_type": "phone_parser",
+      "config": {"source_field": "Phone", "part": "phone_number", "format": "nnn-nnnn"}
+    },
+    {
+      "target_field": "EMAIL",
+      "source_field": "Email",
+      "transformation_type": "direct",
+      "config": {"source_field": "Email"}
+    },
+    {
+      "target_field": "CREATED_DATE",
+      "source_field": "",
+      "transformation_type": "empty",
+      "config": {}
+    },
+    {
+      "target_field": "NOTES",
+      "source_field": "",
+      "transformation_type": "empty",
+      "config": {}
+    },
+    {
+      "target_field": "ZIP_CODE",
+      "source_field": "Address_Full",
+      "transformation_type": "substring",
+      "config": {"source_field": "Address_Full", "method": "left", "length": 5}
+    }
+  ],
+  "field_metadata": [
+    {"field_name": "Full_Name", "data_type": "string", "format_hint": "LAST,FIRST"},
+    {"field_name": "DOB", "data_type": "date"},
+    {"field_name": "Status_Code", "data_type": "string", "sample_values": ["A", "B", "T"]},
+    {"field_name": "Dept_Code", "data_type": "string", "sample_values": ["SALES-WEST", "SALES-EAST", "ENG-CORE", "ENG-INFRA", "HR-ADMIN"]},
+    {"field_name": "Phone", "data_type": "string"},
+    {"field_name": "Email", "data_type": "string"},
+    {"field_name": "Address_Full", "data_type": "string", "sample_values": ["90210-1234", "10001-5678", "60601-9999", "30301-0001", "94105-2233"]}
+  ],
+  "conditional_coverage": {
+    "Status_Code": {"A": "Active", "B": "Inactive", "T": "Terminated"}
+  },
+  "record_count": 5,
+  "output_metadata": {
+    "ACTION_ID": "example-test-etl"
+  }
+}

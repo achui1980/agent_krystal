@@ -1,0 +1,116 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ETL Rule Config",
+  "description": "Configuration for ETL test data generation — defines source-to-target field mappings and transformations.",
+  "type": "object",
+  "required": ["case_name", "source_format", "source_fields", "target_fields"],
+  "properties": {
+    "case_name": {
+      "type": "string",
+      "description": "Unique identifier for this test case"
+    },
+    "source_format": {
+      "type": "string",
+      "enum": ["csv_quoted", "pipe", "comma"],
+      "description": "Format of the source data file"
+    },
+    "source_fields": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Ordered list of source column names"
+    },
+    "target_fields": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Ordered list of all target/output column names"
+    },
+    "fixed_values": {
+      "type": "object",
+      "additionalProperties": {"type": "string"},
+      "description": "Target fields with constant values: {field: value}"
+    },
+    "transformation_rules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["target_field", "transformation_type", "config"],
+        "properties": {
+          "target_field": {
+            "type": "string",
+            "description": "Target field name to populate"
+          },
+          "source_field": {
+            "type": "string",
+            "description": "Source field name (optional, also appears in config)"
+          },
+          "transformation_type": {
+            "type": "string",
+            "description": "Type of transformation. Built-in: fixed, direct, empty, name_parser, conditional_map, split_extract, substring, phone_parser, composite. Custom types can be registered via custom_transformers."
+          },
+          "config": {
+            "type": "object",
+            "description": "Transformer-specific configuration (see transform_engine.py schemas)"
+          }
+        }
+      },
+      "description": "List of transformation rules to apply"
+    },
+    "unresolved_rules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "target_field": {"type": "string"},
+          "source_field": {"type": "string"},
+          "special_rules": {"type": "string", "description": "Original SPECIAL_RULES text from rules.csv"},
+          "note": {"type": "string", "description": "Original NOTE text with examples"},
+          "csds_flag": {"type": "string"}
+        }
+      },
+      "description": "Rules that could not be auto-resolved by rule_parser.py. Present only in draft configs — agent must resolve these and move them to transformation_rules before execution."
+    },
+    "field_metadata": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "field_name": {"type": "string"},
+          "data_type": {
+            "type": "string",
+            "enum": ["string", "date", "number", "integer", "float"],
+            "default": "string"
+          },
+          "format_hint": {"type": "string"},
+          "sample_values": {
+            "type": "array",
+            "items": {"type": "string"}
+          }
+        }
+      },
+      "description": "Metadata hints for source data generation"
+    },
+    "conditional_coverage": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "items": {"type": "string"}
+      },
+      "description": "Fields requiring all values covered in test data generation. Use array format: {field: [value1, value2, ...]}. This is for DATA GENERATION coverage, NOT for defining transformation mappings."
+    },
+    "record_count": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 10,
+      "description": "Number of test records to generate"
+    },
+    "output_metadata": {
+      "type": "object",
+      "properties": {
+        "ACTION_ID": {"type": "string"},
+        "SERVICE_MAP_ID": {"type": "string"},
+        "SOURCE_TOKEN": {"type": "string"}
+      },
+      "description": "Metadata included in expected output file header"
+    }
+  }
+}

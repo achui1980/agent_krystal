@@ -1,0 +1,283 @@
+{
+  "case_name": "humanaS10",
+  "source_format": "csv_quoted",
+  "source_fields": [
+    "Product",
+    "Eff_Date",
+    "Term_Date",
+    "Address1",
+    "City",
+    "State",
+    "Zip",
+    "Member",
+    "DOB",
+    "MEDICARE_ID",
+    "Plan_Name",
+    "AOR_Name",
+    "AOR_SAN",
+    "Agent",
+    "SAN"
+  ],
+  "target_fields": [
+    "CARRIER_STATUS_MAP",
+    "CARRIER_FAMILY_ID",
+    "PARENT_CARRIER_ID",
+    "IS_PAID",
+    "BUSINESS_LINE",
+    "APPLICATION_ID",
+    "MEMBER_NUMBER",
+    "POLICY_ID",
+    "CARRIER_ID",
+    "PLAN_ID",
+    "RIDER_ID",
+    "CATEGORY_CLASS_ID",
+    "REQUESTED_EFFECTIVE_DATE",
+    "STATUS_CODE",
+    "PRODUCT_LINE",
+    "REVENUE_IMPACT_DATE",
+    "POLICY_NUMBER",
+    "MONTHLY_PREMIUM",
+    "RATE_TIER",
+    "NOT_CANCELLED",
+    "IS_DELINQUENT",
+    "DELINQUENCY_NOTE",
+    "MEMBER_COUNT",
+    "CARRIER_EFFECTIVE_DATE",
+    "EFFECTIVE_START_DATE",
+    "CANCELLATION_DATE",
+    "IS_ACTIVE",
+    "IS_REVERSED",
+    "IS_MASTER_POLICY",
+    "HEALTH_RATE_FACTOR",
+    "HOUSEHOLE_DISCOUNT",
+    "PREMIUM_EFFECTIVE_DATE",
+    "FUTURE_RATE_CHANGE_DATE",
+    "FUTURE_PREMIUM",
+    "FREQUENCY_TO_DEBIT",
+    "CARRIER_PAID_THRU_DATE",
+    "ADDRESS_TYPE",
+    "ADDRESS_LINE_1",
+    "ADDRESS_LINE_2",
+    "ADDRESS_LINE_3",
+    "CITY",
+    "STATE",
+    "ZIP_CODE",
+    "COUNTY",
+    "FIRST_NAME",
+    "MIDDLE_NAME",
+    "LAST_NAME",
+    "GENDER",
+    "BIRTH_DATE",
+    "SSN",
+    "EMAIL",
+    "MEDICARE_ID",
+    "CARRIER_CONFIRMATION_NUMBER",
+    "PHONE_TYPE",
+    "AREA_CODE",
+    "PHONE_NUMBER",
+    "PHONE_EXTENSION",
+    "STATUS_NOTE",
+    "CATEGORY",
+    "SUBSCRIBER_COUNT",
+    "GROUP_NAME",
+    "GROUP_ID",
+    "RAF",
+    "CARRIER_APPLICATION_ID",
+    "CARRIER_POLICY_ID",
+    "RECORD_TYPE",
+    "CREATION_DATE",
+    "SUBMIT_DATE",
+    "SIGNITURE_DATE",
+    "SEP_REASON_CODE",
+    "EXTRA_HELP",
+    "EXTRA_HELP_LEVEL",
+    "CARRIER_NAME",
+    "PLAN_NAME",
+    "CMS_CONTRACT_ID",
+    "CMS_PLAN_ID",
+    "CMS_SEGMENT_ID",
+    "RENEWAL_DATE",
+    "RENEWAL_TYPE",
+    "INITIAL_PAYMENT_MODE",
+    "CMS_DISENROLLMENT_CODE",
+    "STATUS_DATE",
+    "PLAN_CHANGE_NOTE",
+    "CMS_CARRIER_POST_TERM",
+    "CMS_CONTRACT_ID_POST_TERM",
+    "CMS_PLAN_ID_POST_TERM",
+    "CMS_SEGMENT_ID_POST_TERM",
+    "BROKER_OF_RECORD",
+    "AGENCY_NAME",
+    "AGENCY_ID",
+    "AGENT_NAME",
+    "AGENT_ID",
+    "LAST_TOUCHED_DATE"
+  ],
+  "fixed_values": {
+    "CARRIER_FAMILY_ID": "66,175,206",
+    "IS_PAID": "1",
+    "BUSINESS_LINE": "2",
+    "MEMBER_NUMBER": "1",
+    "CATEGORY_CLASS_ID": "1",
+    "ADDRESS_TYPE": "HOME",
+    "PHONE_TYPE": "HOME"
+  },
+  "transformation_rules": [
+    {
+      "target_field": "EFFECTIVE_START_DATE",
+      "source_field": "Eff_Date",
+      "transformation_type": "direct",
+      "config": {
+        "source_field": "Eff_Date"
+      }
+    },
+    {
+      "target_field": "CANCELLATION_DATE",
+      "source_field": "Term_Date",
+      "transformation_type": "direct",
+      "config": {
+        "source_field": "Term_Date"
+      }
+    },
+    {
+      "target_field": "ADDRESS_LINE_1",
+      "source_field": "Address1",
+      "transformation_type": "direct",
+      "config": {
+        "source_field": "Address1"
+      }
+    },
+    {
+      "target_field": "CITY",
+      "source_field": "City",
+      "transformation_type": "direct",
+      "config": {
+        "source_field": "City"
+      }
+    },
+    {
+      "target_field": "STATE",
+      "source_field": "State",
+      "transformation_type": "direct",
+      "config": {
+        "source_field": "State"
+      }
+    },
+    {
+      "target_field": "ZIP_CODE",
+      "source_field": "Zip",
+      "transformation_type": "direct",
+      "config": {
+        "source_field": "Zip"
+      }
+    },
+    {
+      "target_field": "BIRTH_DATE",
+      "source_field": "DOB",
+      "transformation_type": "direct",
+      "config": {
+        "source_field": "DOB"
+      }
+    },
+    {
+      "target_field": "MEDICARE_ID",
+      "source_field": "MEDICARE_ID",
+      "transformation_type": "direct",
+      "config": {
+        "source_field": "MEDICARE_ID"
+      }
+    },
+    {
+      "target_field": "CMS_PLAN_ID",
+      "source_field": "Plan_Name",
+      "transformation_type": "direct",
+      "config": {
+        "source_field": "Plan_Name"
+      }
+    },
+    {
+      "target_field": "AGENCY_NAME",
+      "source_field": "AOR_Name",
+      "transformation_type": "direct",
+      "config": {
+        "source_field": "AOR_Name"
+      }
+    },
+    {
+      "target_field": "AGENCY_ID",
+      "source_field": "AOR_SAN",
+      "transformation_type": "direct",
+      "config": {
+        "source_field": "AOR_SAN"
+      }
+    },
+    {
+      "target_field": "AGENT_NAME",
+      "source_field": "Agent",
+      "transformation_type": "direct",
+      "config": {
+        "source_field": "Agent"
+      }
+    },
+    {
+      "target_field": "AGENT_ID",
+      "source_field": "SAN",
+      "transformation_type": "direct",
+      "config": {
+        "source_field": "SAN"
+      }
+    }
+  ],
+  "unresolved_rules": [
+    {
+      "target_field": "PRODUCT_LINE",
+      "source_field": "Product",
+      "special_rules": "if 'PDP' map to MD\nif ‘HAP’, ' HUM', ‘HV’, or ‘RD’ map to MS\nall others is MA/MAPD.",
+      "note": "",
+      "csds_flag": "1"
+    },
+    {
+      "target_field": "FIRST_NAME",
+      "source_field": "Member",
+      "special_rules": "Member format: last_name, first_name",
+      "note": "",
+      "csds_flag": "1"
+    },
+    {
+      "target_field": "LAST_NAME",
+      "source_field": "Member",
+      "special_rules": "Member format: last_name, first_name",
+      "note": "",
+      "csds_flag": "1"
+    },
+    {
+      "target_field": "CMS_CONTRACT_ID",
+      "source_field": "Plan_Name",
+      "special_rules": "for MA/MAPD, PDP, this contains combination of  CMS_Contract_ID and CMS_PLan_CODE separated by '-'\n\nplease note it appears MS lines does not list a CMS_Contract_ID and CMS_Plan_code value on source data. examples provided in sample file.",
+      "note": "",
+      "csds_flag": "1"
+    },
+    {
+      "target_field": "AREA_CODE",
+      "source_field": "",
+      "special_rules": "Remove Special Char: `~!@#$%^&*()_-+={[}]|\\:;'\"<,>.?/    \nPull LEFT 3 digits.",
+      "note": "Ex1. 123-456-7890 becomes 123; \nEx2. (123) 456-7890 becomes 123",
+      "csds_flag": "0"
+    },
+    {
+      "target_field": "PHONE_NUMBER",
+      "source_field": "",
+      "special_rules": "Remove Special Char: `~!@#$%^&*()_-+={[}]|\\:;'\"<,>.?/    \nRemove LEFT 3 digits.    \nAdd \"-\" into string between digits 3 and 4.",
+      "note": "Ex1. 123-456-7890 becomes 4567890;   \nEx2. 1234567890 becomes 4567890;   \nEx3. (123)456-7890 becomes 4567890",
+      "csds_flag": "0"
+    }
+  ],
+  "field_metadata": [],
+  "conditional_coverage": {},
+  "record_count": 10,
+  "output_metadata": {
+    "ACTION_ID": "humana-s10-cs-data-integration",
+    "SERVICE_MAP_ID": "10003358",
+    "SOURCE_TOKEN": "a412f2f3abc24082a83b78059e7448d4_1770021349729"
+  }
+}
