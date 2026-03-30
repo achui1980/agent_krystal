@@ -1,0 +1,289 @@
+{
+  "case_name": "highmark",
+  "source_format": "pipe",
+  "source_fields": [
+    "CONFIRMATION_NUMBER",
+    "PLAN_TYPE",
+    "SUBSCRIBER_ID",
+    "COVERAGE_EFFECTIVE_DATE",
+    "COVERAGE_END_DATE",
+    "APPLICANT_ADDR_1",
+    "APPLICANT_STATE",
+    "APPLICANT_ZIP",
+    "APPLICANT_FIRST_NAME",
+    "APPLICANT_MIDDLE_INITIAL",
+    "APPLICANT_LAST_NAME",
+    "APPLICANT_EMAIL_ADDRESS",
+    "HICN",
+    "APPLICANT_PHONE",
+    "CONTRACT_ID",
+    "PLAN_ID",
+    "SEGMENT_ID",
+    "AGENT_WRITING_NUMBER"
+  ],
+  "target_fields": [
+    "CARRIER_STATUS_MAP",
+    "CARRIER_FAMILY_ID",
+    "PARENT_CARRIER_ID",
+    "IS_PAID",
+    "BUSINESS_LINE",
+    "APPLICATION_ID",
+    "MEMBER_NUMBER",
+    "POLICY_ID",
+    "CARRIER_ID",
+    "PLAN_ID",
+    "RIDER_ID",
+    "CATEGORY_CLASS_ID",
+    "REQUESTED_EFFECTIVE_DATE",
+    "STATUS_CODE",
+    "PRODUCT_LINE",
+    "REVENUE_IMPACT_DATE",
+    "POLICY_NUMBER",
+    "MONTHLY_PREMIUM",
+    "RATE_TIER",
+    "NOT_CANCELLED",
+    "IS_DELINQUENT",
+    "DELINQUENCY_NOTE",
+    "MEMBER_COUNT",
+    "CARRIER_EFFECTIVE_DATE",
+    "EFFECTIVE_START_DATE",
+    "CANCELLATION_DATE",
+    "IS_ACTIVE",
+    "IS_REVERSED",
+    "IS_MASTER_POLICY",
+    "HEALTH_RATE_FACTOR",
+    "HOUSEHOLE_DISCOUNT",
+    "PREMIUM_EFFECTIVE_DATE",
+    "FUTURE_RATE_CHANGE_DATE",
+    "FUTURE_PREMIUM",
+    "FREQUENCY_TO_DEBIT",
+    "CARRIER_PAID_THRU_DATE",
+    "ADDRESS_TYPE",
+    "ADDRESS_LINE_1",
+    "ADDRESS_LINE_2",
+    "ADDRESS_LINE_3",
+    "CITY",
+    "STATE",
+    "ZIP_CODE",
+    "COUNTY",
+    "FIRST_NAME",
+    "MIDDLE_NAME",
+    "LAST_NAME",
+    "GENDER",
+    "BIRTH_DATE",
+    "SSN",
+    "EMAIL",
+    "MEDICARE_ID",
+    "CARRIER_CONFIRMATION_NUMBER",
+    "PHONE_TYPE",
+    "AREA_CODE",
+    "PHONE_NUMBER",
+    "PHONE_EXTENSION",
+    "STATUS_NOTE",
+    "CATEGORY",
+    "SUBSCRIBER_COUNT",
+    "GROUP_NAME",
+    "GROUP_ID",
+    "RAF",
+    "CARRIER_APPLICATION_ID",
+    "CARRIER_POLICY_ID",
+    "RECORD_TYPE",
+    "CREATION_DATE",
+    "SUBMIT_DATE",
+    "SIGNITURE_DATE",
+    "SEP_REASON_CODE",
+    "EXTRA_HELP",
+    "EXTRA_HELP_LEVEL",
+    "CARRIER_NAME",
+    "PLAN_NAME",
+    "CMS_CONTRACT_ID",
+    "CMS_PLAN_ID",
+    "CMS_SEGMENT_ID",
+    "RENEWAL_DATE",
+    "RENEWAL_TYPE",
+    "INITIAL_PAYMENT_MODE",
+    "CMS_DISENROLLMENT_CODE",
+    "STATUS_DATE",
+    "PLAN_CHANGE_NOTE",
+    "CMS_CARRIER_POST_TERM",
+    "CMS_CONTRACT_ID_POST_TERM",
+    "CMS_PLAN_ID_POST_TERM",
+    "CMS_SEGMENT_ID_POST_TERM",
+    "BROKER_OF_RECORD",
+    "AGENCY_NAME",
+    "AGENCY_ID",
+    "AGENT_NAME",
+    "AGENT_ID",
+    "LAST_TOUCHED_DATE"
+  ],
+  "fixed_values": {
+    "CARRIER_FAMILY_ID": "23",
+    "IS_PAID": "1",
+    "BUSINESS_LINE": "2",
+    "MEMBER_NUMBER": "1",
+    "CATEGORY_CLASS_ID": "1",
+    "ADDRESS_TYPE": "HOME",
+    "PHONE_TYPE": "HOME"
+  },
+  "transformation_rules": [
+    {
+      "target_field": "APPLICATION_ID",
+      "source_field": "CONFIRMATION_NUMBER",
+      "transformation_type": "direct",
+      "config": {
+        "source_field": "CONFIRMATION_NUMBER"
+      }
+    },
+    {
+      "target_field": "POLICY_NUMBER",
+      "source_field": "SUBSCRIBER_ID",
+      "transformation_type": "direct",
+      "config": {
+        "source_field": "SUBSCRIBER_ID"
+      }
+    },
+    {
+      "target_field": "EFFECTIVE_START_DATE",
+      "source_field": "COVERAGE_EFFECTIVE_DATE",
+      "transformation_type": "direct",
+      "config": {
+        "source_field": "COVERAGE_EFFECTIVE_DATE"
+      }
+    },
+    {
+      "target_field": "CANCELLATION_DATE",
+      "source_field": "COVERAGE_END_DATE",
+      "transformation_type": "direct",
+      "config": {
+        "source_field": "COVERAGE_END_DATE"
+      }
+    },
+    {
+      "target_field": "ADDRESS_LINE_1",
+      "source_field": "APPLICANT_ADDR_1",
+      "transformation_type": "direct",
+      "config": {
+        "source_field": "APPLICANT_ADDR_1"
+      }
+    },
+    {
+      "target_field": "STATE",
+      "source_field": "APPLICANT_STATE",
+      "transformation_type": "direct",
+      "config": {
+        "source_field": "APPLICANT_STATE"
+      }
+    },
+    {
+      "target_field": "ZIP_CODE",
+      "source_field": "APPLICANT_ZIP",
+      "transformation_type": "direct",
+      "config": {
+        "source_field": "APPLICANT_ZIP"
+      }
+    },
+    {
+      "target_field": "FIRST_NAME",
+      "source_field": "APPLICANT_FIRST_NAME",
+      "transformation_type": "direct",
+      "config": {
+        "source_field": "APPLICANT_FIRST_NAME"
+      }
+    },
+    {
+      "target_field": "MIDDLE_NAME",
+      "source_field": "APPLICANT_MIDDLE_INITIAL",
+      "transformation_type": "direct",
+      "config": {
+        "source_field": "APPLICANT_MIDDLE_INITIAL"
+      }
+    },
+    {
+      "target_field": "LAST_NAME",
+      "source_field": "APPLICANT_LAST_NAME",
+      "transformation_type": "direct",
+      "config": {
+        "source_field": "APPLICANT_LAST_NAME"
+      }
+    },
+    {
+      "target_field": "EMAIL",
+      "source_field": "APPLICANT_EMAIL_ADDRESS",
+      "transformation_type": "direct",
+      "config": {
+        "source_field": "APPLICANT_EMAIL_ADDRESS"
+      }
+    },
+    {
+      "target_field": "MEDICARE_ID",
+      "source_field": "HICN",
+      "transformation_type": "direct",
+      "config": {
+        "source_field": "HICN"
+      }
+    },
+    {
+      "target_field": "CMS_CONTRACT_ID",
+      "source_field": "CONTRACT_ID",
+      "transformation_type": "direct",
+      "config": {
+        "source_field": "CONTRACT_ID"
+      }
+    },
+    {
+      "target_field": "CMS_PLAN_ID",
+      "source_field": "PLAN_ID",
+      "transformation_type": "direct",
+      "config": {
+        "source_field": "PLAN_ID"
+      }
+    },
+    {
+      "target_field": "CMS_SEGMENT_ID",
+      "source_field": "SEGMENT_ID",
+      "transformation_type": "direct",
+      "config": {
+        "source_field": "SEGMENT_ID"
+      }
+    },
+    {
+      "target_field": "AGENT_ID",
+      "source_field": "AGENT_WRITING_NUMBER",
+      "transformation_type": "direct",
+      "config": {
+        "source_field": "AGENT_WRITING_NUMBER"
+      }
+    }
+  ],
+  "unresolved_rules": [
+    {
+      "target_field": "PRODUCT_LINE",
+      "source_field": "PLAN_TYPE",
+      "special_rules": "MAPD = MA",
+      "note": "",
+      "csds_flag": "1"
+    },
+    {
+      "target_field": "AREA_CODE",
+      "source_field": "APPLICANT_PHONE",
+      "special_rules": "Remove Special Char: `~!@#$%^&*()_-+={[}]|\\:;'\"<,>.?/    \nPull LEFT 3 digits.",
+      "note": "Ex1. 123-456-7890 becomes 123; \nEx2. (123) 456-7890 becomes 123",
+      "csds_flag": "1"
+    },
+    {
+      "target_field": "PHONE_NUMBER",
+      "source_field": "APPLICANT_PHONE",
+      "special_rules": "Remove Special Char: `~!@#$%^&*()_-+={[}]|\\:;'\"<,>.?/    \nRemove LEFT 3 digits.    \nAdd \"-\" into string between digits 3 and 4.",
+      "note": "Ex1. 123-456-7890 becomes 4567890;   \nEx2. 1234567890 becomes 4567890;   \nEx3. (123)456-7890 becomes 4567890",
+      "csds_flag": "1"
+    }
+  ],
+  "field_metadata": [],
+  "conditional_coverage": {},
+  "record_count": 10,
+  "output_metadata": {
+    "ACTION_ID": "humana-s10-cs-data-integration",
+    "SERVICE_MAP_ID": "10003358",
+    "SOURCE_TOKEN": "a412f2f3abc24082a83b78059e7448d4_1770021349729"
+  }
+}

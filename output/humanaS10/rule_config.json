@@ -172,6 +172,7 @@
   "record_count": 10,
   "output_metadata": {
     "ACTION_ID": "humana-s10-cs-data-integration",
-    "SERVICE_MAP_ID": "10003358"
+    "SERVICE_MAP_ID": "10003358",
+    "SOURCE_TOKEN": "a412f2f3abc24082a83b78059e7448d4_1770021349729"
   }
 }
